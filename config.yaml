@@ -1,0 +1,91 @@
+# soundvibes configuration — the single source of every tunable value.
+#
+# Nothing here is duplicated in the Python source: the modules read these
+# values, they do not carry their own defaults. Edit this file to change
+# behaviour globally; use command-line flags to change it for one run.
+#
+# Load order: $SOUNDVIBES_CONFIG, then ./config.yaml, then the copy that ships
+# next to the package.
+
+audio:
+  sample_rate: 16000          # what whisper expects; changing it breaks the model
+  frame_ms: 30                # endpointer granularity
+  max_capture_channels: 2     # stereo is mixed to mono; more is never useful
+  block_seconds: 0.05         # capture callback size
+  max_queued_blocks: 256      # raw blocks buffered before audio is dropped
+  block_poll_seconds: 0.2     # how long a capture thread waits for a block
+  resample_quality: HQ        # soxr quality: QQ, LQ, MQ, HQ, VHQ
+
+sources:
+  microphone_label: MIC
+  system_label: SYS
+
+endpointer:
+  silence_seconds: 0.7        # silence that ends an utterance
+  min_speech_seconds: 0.4     # utterances with less voiced audio are discarded
+  max_speech_seconds: 20.0    # force-split beyond this
+  preroll_seconds: 0.32       # audio kept before onset, so no consonant is clipped
+  sensitivity: 3.0            # threshold as a multiple of the noise floor
+  absolute_floor: 0.004       # threshold never drops below this
+  onset_frames: 2             # consecutive loud frames before it counts as speech
+  noise_adaption: 0.05        # how fast the idle noise estimate follows the room
+
+transcription:
+  languages: [en, de, ru, fr]
+  model_size: small           # tiny | base | small | medium | large-v3
+  device: cpu                 # cpu | cuda
+  compute_type: int8
+  beam_size: 5
+  max_no_speech_probability: 0.6   # segments above this are treated as silence
+  min_average_logprob: -1.0        # segments below this are treated as noise
+  trailing_punctuation: " .!?…"    # stripped before hallucination matching
+
+  # Phrases whisper invents when handed near-silence or music.
+  hallucinations:
+    - "thank you."
+    - "thanks for watching!"
+    - "you"
+    - "bye."
+    - "untertitel von stephanie geiges"
+    - "untertitelung des zdf, 2020"
+    - "продолжение следует..."
+    - "субтитры сделал dimatorzok"
+    - "редактор субтитров а.синецкая корректор а.егорова"
+    - "amara.org"
+
+translation:
+  backend: argos              # argos (offline) | claude (API) | none
+  targets: [ru, pl, hu, fi, bg, ar]                 # e.g. [ru, en, fr] -> translate.RU.txt, ...
+  file_prefix: translate      # translate.RU.txt
+  cache_entries: 512          # live speech repeats; bounded so it cannot grow forever
+  claude:
+    model: claude-opus-5
+    effort: low               # translation is mechanical; low keeps it quick
+    max_tokens: 2000
+
+output:
+  path: transcripts/transcript.txt
+  format: text                # text | jsonl
+  split_by_language: false
+  quiet: false
+
+pipeline:
+  poll_seconds: 0.25          # how long the loop waits before re-checking sources
+
+devices:
+  # Substrings identifying a loopback / virtual output-capture device.
+  # "monitor of" and ".monitor" cover PulseAudio and PipeWire on Linux.
+  loopback_hints:
+    - blackhole
+    - soundflower
+    - loopback
+    - vb-cable
+    - vb cable
+    - virtual audio
+    - aggregate
+    - multi-output
+    - multi output
+    - stereo mix
+    - monitor of
+    - .monitor
+    - monitor source
