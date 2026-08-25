@@ -76,3 +76,26 @@ class TestSettingsAreImmutable:
         settings = build_settings(parse_args([]))
         with pytest.raises(Exception):
             settings.transcription.model_size = "large-v3"
+
+
+class TestTranslation:
+    def test_translation_is_off_by_default(self):
+        translation = build_settings(parse_args([])).translation
+        assert translation.targets == ()
+        assert translation.enabled is False
+
+    def test_targets_are_normalised(self):
+        translation = build_settings(parse_args(["--translate", "RU, en-US ,FR"])).translation
+        assert translation.targets == ("ru", "en", "fr")
+        assert translation.enabled is True
+
+    def test_backend_defaults_to_the_offline_one(self):
+        assert build_settings(parse_args(["--translate", "ru"])).translation.backend == "argos"
+
+    def test_backend_can_be_chosen(self):
+        settings = build_settings(parse_args(["--translate", "ru", "--translator", "claude"]))
+        assert settings.translation.backend == "claude"
+
+    def test_unknown_backend_is_rejected_at_parse_time(self):
+        with pytest.raises(SystemExit):
+            parse_args(["--translator", "babelfish"])

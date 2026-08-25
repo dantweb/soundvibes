@@ -9,32 +9,46 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from .config import CONFIG
+
 
 @dataclass(frozen=True)
 class EndpointerSettings:
-    silence_seconds: float = 0.7
-    min_speech_seconds: float = 0.4
-    max_speech_seconds: float = 20.0
-    preroll_seconds: float = 0.32
-    sensitivity: float = 3.0
-    absolute_floor: float = 0.004
+    silence_seconds: float = CONFIG.endpointer.silence_seconds
+    min_speech_seconds: float = CONFIG.endpointer.min_speech_seconds
+    max_speech_seconds: float = CONFIG.endpointer.max_speech_seconds
+    preroll_seconds: float = CONFIG.endpointer.preroll_seconds
+    sensitivity: float = CONFIG.endpointer.sensitivity
+    absolute_floor: float = CONFIG.endpointer.absolute_floor
 
 
 @dataclass(frozen=True)
 class TranscriptionSettings:
-    languages: tuple[str, ...] = ("en", "de", "ru")
-    model_size: str = "small"
-    device: str = "cpu"
-    compute_type: str = "int8"
-    beam_size: int = 5
+    languages: tuple[str, ...] = tuple(CONFIG.transcription.languages)
+    model_size: str = CONFIG.transcription.model_size
+    device: str = CONFIG.transcription.device
+    compute_type: str = CONFIG.transcription.compute_type
+    beam_size: int = CONFIG.transcription.beam_size
+
+
+@dataclass(frozen=True)
+class TranslationSettings:
+    """Off by default: nothing is translated unless target languages are asked for."""
+
+    targets: tuple[str, ...] = tuple(CONFIG.translation.targets)
+    backend: str = CONFIG.translation.backend
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.targets)
 
 
 @dataclass(frozen=True)
 class OutputSettings:
-    path: Path = Path("transcripts/transcript.txt")
-    format_name: str = "text"
-    split_by_language: bool = False
-    quiet: bool = False
+    path: Path = Path(CONFIG.output.path)
+    format_name: str = CONFIG.output.format
+    split_by_language: bool = CONFIG.output.split_by_language
+    quiet: bool = CONFIG.output.quiet
 
 
 @dataclass(frozen=True)
@@ -50,4 +64,5 @@ class Settings:
     capture: CaptureSettings = field(default_factory=CaptureSettings)
     endpointer: EndpointerSettings = field(default_factory=EndpointerSettings)
     transcription: TranscriptionSettings = field(default_factory=TranscriptionSettings)
+    translation: TranslationSettings = field(default_factory=TranslationSettings)
     output: OutputSettings = field(default_factory=OutputSettings)

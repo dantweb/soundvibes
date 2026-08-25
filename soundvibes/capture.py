@@ -18,17 +18,22 @@ from .devices import AudioBackend, DeviceInfo
 from .endpointing import SpeechEndpointer
 from .models import Utterance
 
+from .config import CONFIG
+
 #: raw blocks buffered per source before we start dropping audio
-MAX_QUEUED_BLOCKS = 256
+MAX_QUEUED_BLOCKS = CONFIG.audio.max_queued_blocks
 #: capture callback size, as a fraction of a second
-BLOCK_SECONDS = 0.05
+BLOCK_SECONDS = CONFIG.audio.block_seconds
+RESAMPLE_QUALITY = CONFIG.audio.resample_quality
+#: how long a capture thread waits for a block before re-checking the stop flag
+BLOCK_POLL_SECONDS = CONFIG.audio.block_poll_seconds
 
 
 class AudioPreprocessor:
     """Device audio in, mono float32 at the whisper rate out."""
 
     def __init__(self, source_rate: int, target_rate: int = SAMPLE_RATE,
-                 gain: float = 1.0, resample_quality: str = "HQ") -> None:
+                 gain: float = 1.0, resample_quality: str = RESAMPLE_QUALITY) -> None:
         self._source_rate = source_rate
         self._target_rate = target_rate
         self._gain = gain
@@ -107,7 +112,7 @@ class AudioSource(threading.Thread):
             with stream:
                 while not self._stop_event.is_set():
                     try:
-                        block = self._blocks.get(timeout=0.2)
+                        block = self._blocks.get(timeout=BLOCK_POLL_SECONDS)
                     except queue.Empty:
                         continue
                     self._consume(block)

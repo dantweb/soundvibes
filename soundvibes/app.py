@@ -20,7 +20,8 @@ from .pipeline import TranscriptionPipeline
 from .platforms import Platform, platform_for
 from .settings import Settings
 from .transcription import TranscriptionService, WhisperEngine
-from .writer import TranscriptWriter
+from .translation import CachingTranslator, create_translator
+from .writer import CompositeWriter, TranscriptWriter, TranslationWriter
 
 
 class Application:
@@ -49,12 +50,7 @@ class Application:
             languages=settings.transcription.languages,
             beam_size=settings.transcription.beam_size,
         )
-        writer = TranscriptWriter(
-            path=settings.output.path,
-            formatter=settings.output.format_name,
-            split_by_language=settings.output.split_by_language,
-            languages=settings.transcription.languages,
-        )
+        writer = self._build_writer()
         echo = None if settings.output.quiet else self._echo
         pipeline = TranscriptionPipeline(service, writer, on_line=echo)
 
@@ -76,6 +72,32 @@ class Application:
         self._announce(f"\nWrote {pipeline.lines_written} transcript line(s) to "
                        f"{settings.output.path.resolve()}")
         return 0
+
+    def _build_writer(self):
+        settings = self._settings
+        transcript = TranscriptWriter(
+            path=settings.output.path,
+            formatter=settings.output.format_name,
+            split_by_language=settings.output.split_by_language,
+            languages=settings.transcription.languages,
+        )
+        if not settings.translation.enabled:
+            return transcript
+
+        # Cached because live speech repeats itself constantly, and every repeat
+        # is otherwise a fresh model call or API round trip.
+        translator = CachingTranslator(create_translator(settings.translation.backend))
+        translations = TranslationWriter(
+            path=settings.output.path,
+            formatter=settings.output.format_name,
+            translator=translator,
+            target_languages=settings.translation.targets,
+        )
+        self._announce(
+            f"Translating into {'/'.join(settings.translation.targets)} "
+            f"via {settings.translation.backend}"
+        )
+        return CompositeWriter(transcript, translations)
 
     def build_sources(self, utterances: "queue.Queue[Utterance]") -> list[AudioSource]:
         capture = self._settings.capture

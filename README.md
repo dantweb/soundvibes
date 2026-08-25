@@ -89,6 +89,85 @@ multi-output devices are all recognised automatically. Override with
 On macOS the first run asks for microphone permission for your terminal
 (System Settings → Privacy & Security → Microphone).
 
+## Translation
+
+Transcribe a multilingual conversation once, then read it in whichever language
+you want. The transcript stays mixed-language; each target language additionally
+gets a `translate.<LANG>.txt` file containing **everything**, translated.
+
+```bash
+./.venv/bin/python soundvibes.py --translate ru,en,fr
+```
+
+```
+transcripts/
+├── transcript.txt      # as spoken: de, en, ru interleaved
+├── translate.RU.txt    # all of it, in Russian
+├── translate.EN.txt    # all of it, in English
+└── translate.FR.txt    # all of it, in French
+```
+
+Lines already in the target language are copied through rather than round-tripped,
+and repeated phrases are cached — live speech says "yes" and "one moment" a lot.
+
+### Choosing a backend
+
+| `--translator` | Where it runs | Trade-off |
+| --- | --- | --- |
+| `argos` (default) | fully offline | keeps the "nothing leaves the machine" guarantee; needs an extra install |
+| `claude` | Anthropic API | better quality, nothing to install — **your transcript text is sent to a third party** |
+| `none` | nowhere | passthrough; useful for testing |
+
+The offline backend is an optional dependency because it is genuinely heavy —
+it pulls stanza, spacy and torch, roughly 2–3 GB:
+
+```bash
+pip install -r requirements-translate.txt
+```
+
+Language packages are downloaded on first use, like the whisper model; after that
+it runs with no network at all.
+
+The API backend needs `ANTHROPIC_API_KEY` (or an `ant auth login` profile) and
+`pip install anthropic`. Use it only where sending transcript text off the machine
+is acceptable.
+
+A failing backend never takes down the recording: the failure is reported on
+stderr, that one target file misses that one line, and everything else continues.
+
+Note that translation happens inline, so a slow backend adds latency between
+speech and the transcript line appearing. The utterance queue absorbs it — nothing
+is lost — but the transcript can lag behind the conversation.
+
+## Configuration
+
+Every tunable value lives in one file: **`config.yaml`**. The modules read from
+it and carry no defaults of their own, so there is one place to look and no
+chance of a literal in the source disagreeing with the documented value.
+
+```yaml
+endpointer:
+  silence_seconds: 0.7        # silence that ends an utterance
+  sensitivity: 3.0            # threshold as a multiple of the noise floor
+
+transcription:
+  languages: [en, de, ru]
+  model_size: small
+  hallucinations:             # phrases whisper invents from silence
+    - "thank you."
+```
+
+It covers audio framing, endpointer tuning, whisper settings, the hallucination
+blocklist, loopback device hints, translation, and output defaults. Command-line
+flags override it for a single run.
+
+Load order — first hit wins:
+
+1. `$SOUNDVIBES_CONFIG`
+2. `./config.yaml` in the working directory
+3. the copy shipped next to the package
+
+
 ## Useful options
 
 | Option | What it does |
@@ -103,6 +182,8 @@ On macOS the first run asks for microphone permission for your terminal
 | `--silence 0.7` | seconds of silence that end an utterance |
 | `--min-speech 0.4` | discard utterances with less speech than this |
 | `--sensitivity 3.0` | speech threshold as a multiple of the noise floor (lower = more sensitive) |
+| `--translate ru,en,fr` | also write `translate.RU.txt`, `translate.EN.txt`, … |
+| `--translator argos` | translation backend: `argos` (offline), `claude` (API), `none` |
 | `--quiet` | do not echo lines to the console |
 
 Tips:
@@ -146,7 +227,9 @@ soundvibes/
 ├── devices.py        # AudioBackend seam + DeviceRegistry
 ├── capture.py        # AudioPreprocessor, FrameSplitter, AudioSource thread
 ├── endpointing.py    # SpeechEndpointer (energy VAD)
+├── config.py         # loads config.yaml — the one source of every constant
 ├── transcription.py  # TranscriptionEngine seam, WhisperEngine, filters, service
+├── translation.py    # Translator seam: argos (offline), claude (API), none
 ├── formatters.py     # text / jsonl strategies + registry
 ├── writer.py         # TranscriptWriter, sinks
 ├── pipeline.py       # utterances in, written lines out
@@ -163,6 +246,7 @@ already works:
 | `TranscriptionEngine` | any speech-to-text model | whisper is not load-bearing |
 | `LineFormatter` | a new output format | `register_formatter("srt", …)` |
 | `Platform` | a new operating system | one class, one registry line |
+| `Translator` | a new translation backend | `register_translator("deepl", …)` |
 
 ### Adding an output format
 
@@ -184,10 +268,10 @@ register_formatter("csv", CsvFormatter)
 ## Tests
 
 ```bash
-./.venv/bin/python -m pytest tests/ -q     # 118 tests, ~0.1s
+./.venv/bin/python -m pytest tests/ -q     # 182 tests, ~0.1s
 ```
 
-The unit suite needs **no model, no microphone, no ffmpeg** — every external
+The unit suite needs **no model, no microphone, no ffmpeg, no network** — every external
 dependency sits behind a seam with a test double. That is the point of the
 structure above.
 

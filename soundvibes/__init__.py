@@ -28,7 +28,11 @@ from .settings import Settings
 from .transcription import (EngineResult, HallucinationFilter, Segment, TextAssembler,
                             Transcriber, TranscriptionEngine, TranscriptionService,
                             WhisperEngine)
-from .writer import TranscriptWriter
+from .translation import (ArgosTranslator, CachingTranslator, ClaudeTranslator,
+                          IdentityTranslator, TranslationError, Translator,
+                          available_translators, create_translator,
+                          normalise_language, register_translator)
+from .writer import CompositeWriter, TranscriptWriter, TranslationWriter
 
 __all__ = [
     "AudioPreprocessor", "AudioSource", "FrameSplitter",
@@ -37,7 +41,11 @@ __all__ = [
     "Transcriber", "TranscriptionEngine", "TranscriptionService", "WhisperEngine",
     "JsonlFormatter", "TextFormatter", "available_formats", "create_formatter",
     "register_formatter", "SpeechEndpointer", "TranscriptLine", "Utterance",
-    "TranscriptionPipeline", "TranscriptWriter", "Settings", "platform_for",
+    "TranscriptionPipeline", "TranscriptWriter", "TranslationWriter",
+    "CompositeWriter", "Settings", "platform_for",
+    "ArgosTranslator", "CachingTranslator", "ClaudeTranslator", "IdentityTranslator",
+    "TranslationError", "Translator", "available_translators", "create_translator",
+    "normalise_language", "register_translator",
     "FRAME_MS", "FRAME_SAMPLES", "SAMPLE_RATE", "SOURCE_MIC", "SOURCE_MICROPHONE",
     "SOURCE_SYS", "SOURCE_SYSTEM",
     "build_settings", "main", "parse_args",

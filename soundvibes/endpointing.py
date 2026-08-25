@@ -10,7 +10,10 @@ from typing import Optional
 
 import numpy as np
 
+from .config import CONFIG
 from .constants import FRAME_MS, SAMPLE_RATE
+
+_DEFAULTS = CONFIG.endpointer
 
 FinishedUtterance = tuple[np.ndarray, dt.datetime]
 
@@ -19,18 +22,18 @@ class SpeechEndpointer:
     """Splits a continuous frame stream into utterances."""
 
     #: consecutive loud frames before we call it speech
-    ONSET_FRAMES = 2
+    ONSET_FRAMES = _DEFAULTS.onset_frames
     #: how fast the idle noise estimate follows the room
-    NOISE_ADAPTION = 0.05
+    NOISE_ADAPTION = _DEFAULTS.noise_adaption
 
     def __init__(
         self,
-        silence_seconds: float,
-        min_speech_seconds: float,
-        max_speech_seconds: float,
-        preroll_seconds: float = 0.32,
-        sensitivity: float = 3.0,
-        absolute_floor: float = 0.004,
+        silence_seconds: float = _DEFAULTS.silence_seconds,
+        min_speech_seconds: float = _DEFAULTS.min_speech_seconds,
+        max_speech_seconds: float = _DEFAULTS.max_speech_seconds,
+        preroll_seconds: float = _DEFAULTS.preroll_seconds,
+        sensitivity: float = _DEFAULTS.sensitivity,
+        absolute_floor: float = _DEFAULTS.absolute_floor,
     ) -> None:
         self._silence_frames = max(1, int(silence_seconds * 1000 / FRAME_MS))
         self._min_speech_samples = int(min_speech_seconds * SAMPLE_RATE)

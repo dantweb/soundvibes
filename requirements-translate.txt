@@ -1,0 +1,3 @@
+# Optional: fully offline translation (--translator argos).
+# Heavy — pulls stanza, spacy and torch, roughly 2-3 GB.
+argostranslate>=1.9

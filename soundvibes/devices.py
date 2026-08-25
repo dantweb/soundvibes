@@ -4,16 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Protocol, Sequence
 
-# Substrings that identify a loopback / virtual output-capture device.
-# "monitor of" covers PulseAudio and PipeWire on Linux; the rest are macOS and
-# Windows virtual drivers.
-LOOPBACK_HINTS = (
-    "blackhole", "soundflower", "loopback", "vb-cable", "vb cable",
-    "virtual audio", "aggregate", "multi-output", "multi output",
-    "stereo mix", "monitor of", ".monitor", "monitor source",
-)
+from .config import CONFIG
 
-MAX_CAPTURE_CHANNELS = 2
+#: Substrings identifying a loopback / virtual output-capture device.
+LOOPBACK_HINTS = tuple(CONFIG.devices.loopback_hints)
+MAX_CAPTURE_CHANNELS = CONFIG.audio.max_capture_channels
 
 
 class DeviceResolutionError(RuntimeError):

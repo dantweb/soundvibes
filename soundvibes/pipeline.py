@@ -13,8 +13,10 @@ from typing import Callable, Optional, Sequence
 
 from .models import TranscriptLine, Utterance
 
+from .config import CONFIG
+
 #: how long the live loop waits for an utterance before re-checking the sources
-POLL_SECONDS = 0.25
+POLL_SECONDS = CONFIG.pipeline.poll_seconds
 
 
 class TranscriptionPipeline:

@@ -12,17 +12,14 @@ from typing import Iterable, Optional, Protocol, Sequence
 
 import numpy as np
 
+from .config import CONFIG
 from .models import TranscriptLine, Utterance
 
-# Whisper happily invents these when handed near-silence or music.
-DEFAULT_HALLUCINATIONS = frozenset({
-    "thank you.", "thanks for watching!", "you", "bye.",
-    "untertitel von stephanie geiges", "untertitelung des zdf, 2020",
-    "продолжение следует...", "субтитры сделал dimatorzok",
-    "редактор субтитров а.синецкая корректор а.егорова", "amara.org",
-})
+_DEFAULTS = CONFIG.transcription
 
-TRAILING_PUNCTUATION = " .!?…"
+#: Phrases whisper invents when handed near-silence or music.
+DEFAULT_HALLUCINATIONS = frozenset(_DEFAULTS.hallucinations)
+TRAILING_PUNCTUATION = _DEFAULTS.trailing_punctuation
 
 
 @dataclass
@@ -52,8 +49,9 @@ class TranscriptionEngine(Protocol):
 class WhisperEngine:
     """Adapter for faster-whisper."""
 
-    def __init__(self, model_size: str = "small", device: str = "cpu",
-                 compute_type: str = "int8", announce=print) -> None:
+    def __init__(self, model_size: str = _DEFAULTS.model_size,
+                 device: str = _DEFAULTS.device,
+                 compute_type: str = _DEFAULTS.compute_type, announce=print) -> None:
         from faster_whisper import WhisperModel  # noqa: PLC0415 - slow import
 
         announce(f"Loading whisper model {model_size!r} ({device}/{compute_type})...")
@@ -100,8 +98,8 @@ class TextAssembler:
     """Joins segments into a line, dropping the ones that are not real speech."""
 
     def __init__(self, hallucinations: Optional[HallucinationFilter] = None,
-                 max_no_speech_probability: float = 0.6,
-                 min_average_logprob: float = -1.0) -> None:
+                 max_no_speech_probability: float = _DEFAULTS.max_no_speech_probability,
+                 min_average_logprob: float = _DEFAULTS.min_average_logprob) -> None:
         self._hallucinations = hallucinations or HallucinationFilter()
         self._max_no_speech_probability = max_no_speech_probability
         self._min_average_logprob = min_average_logprob
@@ -126,7 +124,8 @@ class TranscriptionService:
     """Applies our language policy to whatever the engine returns."""
 
     def __init__(self, engine: TranscriptionEngine, languages: Sequence[str],
-                 beam_size: int = 5, assembler: Optional[TextAssembler] = None) -> None:
+                 beam_size: int = _DEFAULTS.beam_size,
+                 assembler: Optional[TextAssembler] = None) -> None:
         self._engine = engine
         self._languages = list(languages)
         self._beam_size = beam_size
