@@ -103,12 +103,14 @@ class TranslationWriter:
         translator,
         target_languages: Sequence[str],
         sink_factory=FileSink,
+        on_line=None,
     ) -> None:
         from .translation import FILE_PREFIX, normalise_language  # noqa: PLC0415
 
         self._formatter = create_formatter(formatter) if isinstance(formatter, str) else formatter
         self._translator = translator
         self._path = Path(path)
+        self._on_line = on_line
         self.failures = 0
 
         self._sinks: dict[str, TranscriptSink] = {}
@@ -128,9 +130,10 @@ class TranslationWriter:
             text = self._text_for(line, source_language, language)
             if text is None:
                 continue
-            sink.write(self._formatter.format(
-                replace(line, language=language, text=text)
-            ))
+            rendered = self._formatter.format(replace(line, language=language, text=text))
+            sink.write(rendered)
+            if self._on_line is not None:
+                self._on_line(rendered)
         return line.text
 
     def close(self) -> None:

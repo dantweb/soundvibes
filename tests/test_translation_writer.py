@@ -147,3 +147,35 @@ class TestCompositeWriter:
         CompositeWriter(first, second).close()
 
         assert first.closed and second.closed
+
+
+class TestEcho:
+    """`make start fr` should show the translation, not just write it to a file."""
+
+    def test_translated_lines_are_echoed_when_a_callback_is_given(self, tmp_path):
+        echoed = []
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(), StubTranslator(),
+                                   ["ru"], on_line=echoed.append)
+
+        writer.write(line("Guten Tag.", "de"))
+        writer.close()
+
+        assert echoed == ["[13:41:39] [MIC] [ru] <ru>Guten Tag."]
+
+    def test_nothing_is_echoed_without_a_callback(self, tmp_path):
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(),
+                                   StubTranslator(), ["ru"])
+        writer.write(line())  # must not raise
+        writer.close()
+
+    def test_a_failed_target_is_not_echoed(self, tmp_path):
+        echoed = []
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(),
+                                   StubTranslator(failing_targets={"ru"}), ["ru", "fr"],
+                                   on_line=echoed.append)
+
+        writer.write(line("Guten Tag.", "de"))
+        writer.close()
+
+        assert len(echoed) == 1
+        assert "[fr]" in echoed[0]

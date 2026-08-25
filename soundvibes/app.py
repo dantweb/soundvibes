@@ -92,6 +92,8 @@ class Application:
             formatter=settings.output.format_name,
             translator=translator,
             target_languages=settings.translation.targets,
+            # Show the translation as it happens, not just write it to a file.
+            on_line=None if settings.output.quiet else self._echo,
         )
         self._announce(
             f"Translating into {'/'.join(settings.translation.targets)} "

@@ -10,11 +10,57 @@ no audio leaves the machine and no API key is needed.
 
 Runs on **macOS and Linux**.
 
+## Quick start
+
+```bash
+make install            # create the venv and install dependencies
+make start              # transcribe in this terminal; Ctrl-C stops it
+```
+
+Everything is a make target:
+
+| Command | What it does |
+| --- | --- |
+| `make install` | create the venv, install dependencies, check your platform |
+| `make install offline` | ...and add fully offline translation, pre-fetching the model and language packages |
+| `make start` | transcribe in this terminal; Ctrl-C stops it |
+| `make start fr` | ...and show a French translation as you speak |
+| `make start fr de` | ...several languages at once |
+| `make start-d` | transcribe in the background |
+| `make start-d fr` | ...with a French translation running alongside |
+| `make stop` | stop the background transcription (drains the queue first) |
+| `make status` | is it running, and what has it written |
+| `make logs` | follow the background transcript live |
+| `make test` | fast unit suite — no model, no microphone |
+| `make selftest` | end-to-end check against the real model |
+
+> **`make start -d` does not work, and cannot.** GNU make claims `-d` as its own
+> debug flag wherever it appears on the command line, so it never reaches the
+> target — you get make's debug trace instead of a background transcription.
+> **`make start-d`** is the working spelling.
+
+Background runs write their pid to `var/soundvibes.pid` and their output to
+`var/soundvibes.log`. `make stop` sends SIGTERM so the queue is drained and the
+last utterances still land in the transcript; it escalates to SIGKILL only if the
+process is still alive after 15 seconds.
+
+Asking for a translation without a working backend stops before recording rather
+than filling `translate.FR.txt` with nothing:
+
+```
+$ make start fr
+Translation into [fr] was requested, but the offline backend
+is not installed, so the translate.*.txt files would stay empty.
+
+  make install offline      install it (large: stanza, spacy, torch)
+  --translator claude       use the API instead (text leaves the machine)
+```
+
 ## Install
 
 ```bash
 cd soundvibes
-./setup.sh
+make install          # or ./setup.sh directly
 ```
 
 This creates `.venv/`, installs the dependencies, and tells you what — if
@@ -32,8 +78,9 @@ sudo pacman -S portaudio            # Arch
 ## Run
 
 ```bash
+make start                                             # the usual way
 ./.venv/bin/python soundvibes.py --list-devices        # see what can be captured
-./.venv/bin/python soundvibes.py                       # start transcribing
+./.venv/bin/python soundvibes.py                       # same as `make start`
 ./.venv/bin/python -m soundvibes                       # identical
 ```
 
@@ -96,7 +143,16 @@ you want. The transcript stays mixed-language; each target language additionally
 gets a `translate.<LANG>.txt` file containing **everything**, translated.
 
 ```bash
+make start ru en fr                                    # or:
 ./.venv/bin/python soundvibes.py --translate ru,en,fr
+```
+
+With translation on, the translated lines are echoed as you speak, not just
+written to the files:
+
+```
+[14:30:00] [MIC] [de] Guten Tag, wie geht es dir?
+[14:30:00] [MIC] [fr] Bonjour, comment allez-vous ?
 ```
 
 ```
@@ -122,8 +178,14 @@ The offline backend is an optional dependency because it is genuinely heavy —
 it pulls stanza, spacy and torch, roughly 2–3 GB:
 
 ```bash
-pip install -r requirements-translate.txt
+make install offline          # installs it and pre-fetches everything
+pip install -r requirements-translate.txt   # or just the dependency
 ```
+
+`make install offline` goes further than installing the package: it pre-downloads
+the whisper model and the Argos language packages for your configured languages,
+then translates one phrase to prove the offline path works. After it finishes,
+soundvibes needs no network at all.
 
 Language packages are downloaded on first use, like the whisper model; after that
 it runs with no network at all.
@@ -268,7 +330,7 @@ register_formatter("csv", CsvFormatter)
 ## Tests
 
 ```bash
-./.venv/bin/python -m pytest tests/ -q     # 182 tests, ~0.1s
+make test                                  # 185 tests, ~0.1s
 ```
 
 The unit suite needs **no model, no microphone, no ffmpeg, no network** — every external
@@ -276,7 +338,7 @@ dependency sits behind a seam with a test double. That is the point of the
 structure above.
 
 ```bash
-./.venv/bin/python selftest.py             # end-to-end, needs the model
+make selftest                              # end-to-end, needs the model
 ```
 
 `selftest.py` synthesises English, German and Russian speech with the platform's
