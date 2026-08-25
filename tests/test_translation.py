@@ -94,3 +94,100 @@ class TestBackendsFailLoudlyWhenUnavailable:
 
 def _raise_import():
     raise ImportError("no module named argostranslate")
+
+
+class FakePackageApi:
+    """Stands in for argostranslate.package."""
+
+    def __init__(self, available_pairs=(), installed_pairs=()):
+        self.available_pairs = list(available_pairs)
+        self.installed_pairs = list(installed_pairs)
+        self.installed = []
+
+    def get_installed_packages(self):
+        return [_FakePackage(*pair) for pair in self.installed_pairs]
+
+    def get_available_packages(self):
+        return [_FakePackage(*pair) for pair in self.available_pairs]
+
+    def update_package_index(self):
+        pass
+
+    def install_from_path(self, path):
+        self.installed.append(path)
+
+
+class _FakePackage:
+    def __init__(self, from_code, to_code):
+        self.from_code = from_code
+        self.to_code = to_code
+
+    def download(self):
+        return f"/tmp/{self.from_code}-{self.to_code}.argosmodel"
+
+
+class FakeTranslateApi:
+    def __init__(self):
+        self.calls = []
+
+    def translate(self, text, source, target):
+        self.calls.append((text, source, target))
+        return f"translated({source}->{target})"
+
+
+class TestArgosPackageHandling:
+    def install_fakes(self, monkeypatch, package_api):
+        from soundvibes import translation
+
+        translate_api = FakeTranslateApi()
+        monkeypatch.setattr(translation, "_import_argos",
+                            lambda: (package_api, translate_api))
+        return translate_api
+
+    def test_a_missing_direct_package_still_translates(self, monkeypatch):
+        """Argos routes de->ru through English. Refusing here broke real pairs."""
+        from soundvibes.translation import ArgosTranslator
+
+        package_api = FakePackageApi(available_pairs=[("en", "ru")],
+                                     installed_pairs=[("en", "ru"), ("de", "en")])
+        translate_api = self.install_fakes(monkeypatch, package_api)
+
+        result = ArgosTranslator().translate("Guten Tag", "de", "ru")
+
+        assert result == "translated(de->ru)"
+        assert translate_api.calls == [("Guten Tag", "de", "ru")]
+
+    def test_an_available_direct_package_is_installed_first(self, monkeypatch):
+        from soundvibes.translation import ArgosTranslator
+
+        package_api = FakePackageApi(available_pairs=[("de", "ru")])
+        self.install_fakes(monkeypatch, package_api)
+
+        ArgosTranslator().translate("Guten Tag", "de", "ru")
+
+        assert package_api.installed == ["/tmp/de-ru.argosmodel"]
+
+    def test_an_already_installed_package_is_not_reinstalled(self, monkeypatch):
+        from soundvibes.translation import ArgosTranslator
+
+        package_api = FakePackageApi(available_pairs=[("de", "ru")],
+                                     installed_pairs=[("de", "ru")])
+        self.install_fakes(monkeypatch, package_api)
+
+        ArgosTranslator().translate("Guten Tag", "de", "ru")
+
+        assert package_api.installed == []
+
+    def test_a_failing_translation_is_reported_as_a_translation_error(self, monkeypatch):
+        from soundvibes import translation
+        from soundvibes.translation import ArgosTranslator, TranslationError
+
+        class Exploding:
+            def translate(self, text, source, target):
+                raise RuntimeError("model missing")
+
+        monkeypatch.setattr(translation, "_import_argos",
+                            lambda: (FakePackageApi(), Exploding()))
+
+        with pytest.raises(TranslationError, match="de->ru"):
+            ArgosTranslator().translate("Guten Tag", "de", "ru")

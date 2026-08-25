@@ -127,9 +127,11 @@ class ArgosTranslator:
                 match = next((p for p in candidates
                               if p.from_code == source and p.to_code == target), None)
                 if match is None:
-                    raise TranslationError(
-                        f"Argos has no {source}->{target} language package."
-                    )
+                    # No direct package. Argos pivots through English when the
+                    # legs are installed, so let the translation attempt decide
+                    # rather than refusing here.
+                    self._installed_pairs.add((source, target))
+                    return
                 package_api.install_from_path(match.download())
         except TranslationError:
             raise
