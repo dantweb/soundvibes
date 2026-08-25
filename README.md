@@ -8,6 +8,8 @@ and constrained to the ones you allow — **English, German and Russian** by def
 Transcription runs locally via [faster-whisper](https://github.com/SYSTRAN/faster-whisper);
 no audio leaves the machine and no API key is needed.
 
+Runs on **macOS and Linux**.
+
 ## Install
 
 ```bash
@@ -15,47 +17,76 @@ cd soundvibes
 ./setup.sh
 ```
 
-This creates `.venv/` and installs `numpy`, `sounddevice`, `soxr` and
-`faster-whisper`. The whisper model itself is downloaded on first run
-(`small` ≈ 500 MB, cached in `~/.cache/huggingface`).
+This creates `.venv/`, installs the dependencies, and tells you what — if
+anything — is missing for your platform. The whisper model itself is downloaded
+on first run (`small` ≈ 500 MB, cached in `~/.cache/huggingface`).
+
+**Linux** needs one system library that pip cannot provide:
+
+```bash
+sudo apt install libportaudio2      # Debian/Ubuntu
+sudo dnf install portaudio          # Fedora
+sudo pacman -S portaudio            # Arch
+```
 
 ## Run
 
 ```bash
 ./.venv/bin/python soundvibes.py --list-devices        # see what can be captured
 ./.venv/bin/python soundvibes.py                       # start transcribing
+./.venv/bin/python -m soundvibes                       # identical
 ```
 
 Transcript goes to `transcripts/transcript.txt` (appended, flushed after every
 line — killing the process never loses what was already written). Stop with Ctrl-C.
 
 ```
-===== soundvibes session started 2026-08-08 18:35:13 =====
-[18:35:14] [MIC] [en] The quick brown fox jumps over the lazy dog every morning.
-[18:35:18] [SYS] [de] Guten Tag, dies ist ein deutscher Testsatz für die Spracherkennung.
-[18:35:20] [MIC] [ru] Добрый день, это тестовое предложение для распознавания речи.
+===== soundvibes session started 2026-08-25 13:41:38 =====
+[13:41:39] [MIC] [en] The quick brown fox jumps over the lazy dog every morning.
+[13:41:41] [SYS] [de] Guten Tag, dies ist ein deutscher Testsatz für die Spracherkennung.
+[13:41:44] [MIC] [ru] Добрый день, это тестовое предложение для распознавания речи.
 ```
 
-## Capturing system audio on macOS
+## Capturing system audio
 
-macOS cannot record its own output without a virtual audio driver. Microphone
-capture works out of the box; for `SYS` you need a loopback device:
+Microphone capture works out of the box everywhere. Capturing what the machine
+*plays* needs a loopback source, and that differs by platform. soundvibes finds
+one automatically where it can, and prints platform-specific instructions when
+it cannot.
+
+### macOS
+
+macOS cannot record its own output without a virtual audio driver:
 
 ```bash
 brew install blackhole-2ch
 ```
 
 Then open **Audio MIDI Setup** → **+** → **Create Multi-Output Device**, tick both
-your speakers **and** BlackHole 2ch, and select that as the system output. This way
-you still *hear* the audio while soundvibes transcribes it. (Selecting BlackHole
-directly as the output also works, but then you hear nothing.)
+your speakers **and** BlackHole 2ch, and select that as the system output. This
+way you still *hear* the audio while soundvibes transcribes it. (Selecting
+BlackHole directly as the output also works, but then you hear nothing.)
 
-soundvibes finds the loopback input automatically — BlackHole, Soundflower,
-Loopback, VB-Cable, aggregate/multi-output devices and PulseAudio monitors are all
-recognised. Override with `--system-device "BlackHole"`. If no loopback is found it
-prints setup instructions and carries on with the microphone alone.
+### Linux
 
-On the first run macOS will ask for microphone permission for your terminal
+No extra driver is needed — PulseAudio and PipeWire already expose every sink's
+output as a `.monitor` source. It only has to be visible to PortAudio:
+
+```bash
+pactl list short sources | grep monitor      # find it
+./.venv/bin/python soundvibes.py --system-device monitor
+```
+
+If no monitor source appears in `--list-devices`, install the PulseAudio ALSA
+plugin (`libasound2-plugins` and `pulseaudio-module-alsa` on Debian/Ubuntu,
+`alsa-plugins-pulseaudio` on Fedora) and try again. On a bare-ALSA system without
+a sound server, load `snd-aloop` and capture from the loopback device instead.
+
+Monitor sources, BlackHole, Soundflower, Loopback, VB-Cable, aggregate and
+multi-output devices are all recognised automatically. Override with
+`--system-device "<name or index>"`.
+
+On macOS the first run asks for microphone permission for your terminal
 (System Settings → Privacy & Security → Microphone).
 
 ## Useful options
@@ -64,12 +95,13 @@ On the first run macOS will ask for microphone permission for your terminal
 | --- | --- |
 | `-o PATH` | transcript file (default `transcripts/transcript.txt`) |
 | `--languages en,de,ru` | languages to allow; detection is forced into this set |
-| `--split-by-language` | *also* write `transcript.en.txt`, `transcript.de.txt`, `transcript.ru.txt` |
+| `--split-by-language` | *also* write `transcript.en.txt`, `transcript.de.txt`, … |
 | `--format jsonl` | one JSON object per line instead of plain text |
 | `--model small` | `tiny`/`base`/`small`/`medium`/`large-v3` — bigger is better and slower |
 | `--input-device`, `--system-device` | pick devices by index or partial name |
 | `--no-mic`, `--no-system` | capture only one side |
 | `--silence 0.7` | seconds of silence that end an utterance |
+| `--min-speech 0.4` | discard utterances with less speech than this |
 | `--sensitivity 3.0` | speech threshold as a multiple of the noise floor (lower = more sensitive) |
 | `--quiet` | do not echo lines to the console |
 
@@ -87,7 +119,7 @@ Tips:
 
 ```
 mic device ─┐                             ┌─ energy endpointer ─┐
-            ├─ 16 kHz mono (soxr resample)┤                     ├─ faster-whisper ─ transcript file
+            ├─ 16 kHz mono (soxr resample)┤                     ├─ whisper ─ transcript
 loopback  ──┘                             └─ energy endpointer ─┘
 ```
 
@@ -103,14 +135,67 @@ so a loud speaker output does not desensitise the microphone. Utterances are cut
 own VAD filter and a no-speech/low-confidence check drop the "Thank you." style
 hallucinations it produces on silence and music.
 
-## Self-test
+## Architecture
 
-`selftest.py` synthesises English, German and Russian speech with the macOS `say`
-command and drives the real pipeline classes — no microphone involved:
-
-```bash
-./.venv/bin/python selftest.py
+```
+soundvibes/
+├── constants.py      # sample rate, frame size, source labels
+├── models.py         # Utterance, TranscriptLine — what flows through the pipeline
+├── settings.py       # frozen settings objects, built once from the CLI
+├── platforms.py      # macOS / Linux / generic differences
+├── devices.py        # AudioBackend seam + DeviceRegistry
+├── capture.py        # AudioPreprocessor, FrameSplitter, AudioSource thread
+├── endpointing.py    # SpeechEndpointer (energy VAD)
+├── transcription.py  # TranscriptionEngine seam, WhisperEngine, filters, service
+├── formatters.py     # text / jsonl strategies + registry
+├── writer.py         # TranscriptWriter, sinks
+├── pipeline.py       # utterances in, written lines out
+├── app.py            # composition root
+└── cli.py            # argument parsing
 ```
 
-It asserts that each phrase is transcribed and detected in the right language, and
-that the per-language files are written.
+Four seams exist so the program can be tested and extended without touching what
+already works:
+
+| Seam | Swap in | Why |
+| --- | --- | --- |
+| `AudioBackend` | anything that lists devices and opens a stream | tests run with no hardware |
+| `TranscriptionEngine` | any speech-to-text model | whisper is not load-bearing |
+| `LineFormatter` | a new output format | `register_formatter("srt", …)` |
+| `Platform` | a new operating system | one class, one registry line |
+
+### Adding an output format
+
+```python
+from soundvibes.formatters import register_formatter
+
+class CsvFormatter:
+    def format(self, line):
+        return f"{line.started_at:%H:%M:%S},{line.source},{line.language},{line.text}"
+
+    def header(self, moment):
+        return "time,source,language,text"
+
+register_formatter("csv", CsvFormatter)
+```
+
+`--format csv` now works. No existing file was edited.
+
+## Tests
+
+```bash
+./.venv/bin/python -m pytest tests/ -q     # 118 tests, ~0.1s
+```
+
+The unit suite needs **no model, no microphone, no ffmpeg** — every external
+dependency sits behind a seam with a test double. That is the point of the
+structure above.
+
+```bash
+./.venv/bin/python selftest.py             # end-to-end, needs the model
+```
+
+`selftest.py` synthesises English, German and Russian speech with the platform's
+offline TTS (`say` on macOS, `espeak-ng` on Linux) and drives the real pipeline
+classes — still no microphone. It asserts that each phrase is transcribed, detected
+in the right language, and written to the per-language files.

@@ -1,0 +1,4 @@
+# Development-only dependencies. The unit suite needs nothing else — no model,
+# no microphone, no ffmpeg.
+-r requirements.txt
+pytest>=8.0
