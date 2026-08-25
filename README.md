@@ -219,6 +219,33 @@ transcription:
     - "thank you."
 ```
 
+### Which languages?
+
+Two separate lists, doing different jobs:
+
+```yaml
+transcription:
+  languages: [en, de, ru]     # what may be SPOKEN — detection is forced into this set
+
+translation:
+  targets: [ru, pl, fr]       # what to translate INTO -> translate.RU.txt, ...
+```
+
+`transcription.languages` constrains whisper's detection: it knows ~100 languages
+and this narrows it to yours, per utterance. Listing exactly one skips detection
+entirely, which is faster and more accurate when you know what will be spoken.
+
+`translation.targets` is the output side. A target need never be spoken —
+translating German speech into French is the ordinary case.
+
+Command-line flags override either for a single run: `--languages en,de` and
+`--translate fr` (or `make start fr`).
+
+`make install offline` plans from **both** lists: it works out every
+spoken-language → target pair and installs the packages that cover them, using
+English as a pivot where Argos has no direct package. With four spoken languages
+and six targets that is 23 pairs covered by 9 packages.
+
 It covers audio framing, endpointer tuning, whisper settings, the hallucination
 blocklist, loopback device hints, translation, and output defaults. Command-line
 flags override it for a single run.

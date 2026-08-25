@@ -31,7 +31,7 @@ endpointer:
   noise_adaption: 0.05        # how fast the idle noise estimate follows the room
 
 transcription:
-  languages: [en, de, ru]
+  languages: [en, de, ru, fr]
   model_size: small           # tiny | base | small | medium | large-v3
   device: cpu                 # cpu | cuda
   compute_type: int8
@@ -55,7 +55,7 @@ transcription:
 
 translation:
   backend: argos              # argos (offline) | claude (API) | none
-  targets: []                 # e.g. [ru, en, fr] -> translate.RU.txt, ...
+  targets: [ru, pl, hu, fi, bg, ar]                 # e.g. [ru, en, fr] -> translate.RU.txt, ...
   file_prefix: translate      # translate.RU.txt
   cache_entries: 512          # live speech repeats; bounded so it cannot grow forever
   claude:

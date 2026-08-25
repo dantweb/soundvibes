@@ -12,7 +12,10 @@ class TestLoading:
         assert CONFIG.translation.claude.model.startswith("claude-")
 
     def test_lists_come_back_as_lists(self):
-        assert "en" in CONFIG.transcription.languages
+        # Which languages are configured is the user's business; that the loader
+        # returns a usable list is ours.
+        assert isinstance(CONFIG.transcription.languages, list)
+        assert CONFIG.transcription.languages
         assert len(CONFIG.devices.loopback_hints) > 5
 
     def test_a_missing_key_names_its_full_path(self):

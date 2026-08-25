@@ -9,17 +9,17 @@ import numpy as np
 import pytest
 
 from conftest import FakeEngine, make_result
+from soundvibes.config import CONFIG
 from soundvibes.models import Utterance
 from soundvibes.transcription import (EngineResult, HallucinationFilter, Segment,
                                       TextAssembler, TranscriptionService)
 
 
 class TestHallucinationFilter:
-    @pytest.mark.parametrize("text", [
-        "Thank you.", "thanks for watching!", "you", "Bye.",
-        "Untertitel von Stephanie Geiges", "Продолжение следует...", "amara.org",
-    ])
-    def test_known_whisper_inventions_are_rejected(self, text):
+    # The list itself lives in config.yaml and is the user's to edit, so assert
+    # that whatever is configured is honoured — not a copy of today's contents.
+    @pytest.mark.parametrize("text", list(CONFIG.transcription.hallucinations))
+    def test_every_configured_phrase_is_rejected(self, text):
         assert HallucinationFilter().is_hallucination(text)
 
     @pytest.mark.parametrize("text", [
@@ -31,36 +31,64 @@ class TestHallucinationFilter:
         assert not HallucinationFilter().is_hallucination(text)
 
     def test_matching_ignores_case_and_trailing_punctuation(self):
-        assert HallucinationFilter().is_hallucination("  THANK YOU!!  ")
+        noise = HallucinationFilter(extra_phrases={"mumble mumble"})
+        punctuation = CONFIG.transcription.trailing_punctuation.strip()[:1]
+        assert noise.is_hallucination(f"  MUMBLE MUMBLE{punctuation}  ")
 
     def test_extra_phrases_can_be_added_without_editing_the_class(self):
         custom = HallucinationFilter(extra_phrases={"copyright wdr"})
         assert custom.is_hallucination("Copyright WDR")
-        assert custom.is_hallucination("Thank you.")  # defaults still apply
+        configured = next(iter(CONFIG.transcription.hallucinations))
+        assert custom.is_hallucination(configured)  # configured ones still apply
+
+
+NOISE = "supercalifragilistic filler"
+
+
+#: Thresholds these tests own, so config.yaml can be tuned without breaking them.
+MAX_NO_SPEECH = 0.6
+MIN_AVERAGE_LOGPROB = -1.0
+
+
+def assembler():
+    """An assembler whose blocklist and thresholds this test owns."""
+    return TextAssembler(HallucinationFilter(extra_phrases={NOISE}),
+                         max_no_speech_probability=MAX_NO_SPEECH,
+                         min_average_logprob=MIN_AVERAGE_LOGPROB)
 
 
 class TestTextAssembler:
     def test_segments_are_joined(self):
         segments = [Segment("Hello there.", 0.01, -0.2), Segment("How are you?", 0.01, -0.3)]
-        assert TextAssembler().assemble(segments) == "Hello there. How are you?"
+        assert assembler().assemble(segments) == "Hello there. How are you?"
 
     def test_low_confidence_segments_are_dropped(self):
         segments = [Segment("real speech", 0.01, -0.2), Segment("garbage", 0.01, -2.0)]
-        assert TextAssembler().assemble(segments) == "real speech"
+        assert assembler().assemble(segments) == "real speech"
 
     def test_probable_silence_is_dropped(self):
         segments = [Segment("real speech", 0.01, -0.2), Segment("ghost", 0.9, -0.2)]
-        assert TextAssembler().assemble(segments) == "real speech"
+        assert assembler().assemble(segments) == "real speech"
 
     def test_hallucinated_segments_are_dropped(self):
-        segments = [Segment("Thank you.", 0.01, -0.2), Segment("actual words", 0.01, -0.2)]
-        assert TextAssembler().assemble(segments) == "actual words"
+        segments = [Segment(NOISE, 0.01, -0.2), Segment("actual words", 0.01, -0.2)]
+        assert assembler().assemble(segments) == "actual words"
 
     def test_output_that_is_entirely_a_hallucination_becomes_empty(self):
-        assert TextAssembler().assemble([Segment("Thank you.", 0.01, -0.2)]) == ""
+        assert assembler().assemble([Segment(NOISE, 0.01, -0.2)]) == ""
 
     def test_no_segments_yields_empty_text(self):
-        assert TextAssembler().assemble([]) == ""
+        assert assembler().assemble([]) == ""
+
+
+class TestAssemblerDefaults:
+    """The defaults themselves come from config.yaml — that wiring is the test."""
+
+    def test_thresholds_are_taken_from_the_config_file(self):
+        default = TextAssembler()
+        assert default._max_no_speech_probability == \
+            CONFIG.transcription.max_no_speech_probability
+        assert default._min_average_logprob == CONFIG.transcription.min_average_logprob
 
 
 class TestTranscriptionService:
@@ -128,7 +156,8 @@ class TestTranscriptionService:
         assert self.service(engine).transcribe(utterance) is None
 
     def test_pure_hallucination_yields_no_line(self, utterance):
-        engine = FakeEngine([make_result("Thank you.", "en", 0.9)])
+        configured = next(iter(CONFIG.transcription.hallucinations))
+        engine = FakeEngine([make_result(configured, "en", 0.9)])
         assert self.service(engine).transcribe(utterance) is None
 
     def test_duration_is_carried_from_the_utterance(self, utterance):

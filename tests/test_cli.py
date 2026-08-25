@@ -4,25 +4,32 @@ from pathlib import Path
 import pytest
 
 from soundvibes.cli import build_settings, parse_args
+from soundvibes.config import CONFIG
 
 
 class TestDefaults:
-    def test_sensible_defaults(self):
+    """Defaults come from config.yaml, so these assert the wiring rather than
+    the values — editing config.yaml must never turn the suite red."""
+
+    def test_defaults_are_taken_from_the_config_file(self):
         settings = build_settings(parse_args([]))
 
-        assert settings.output.path == Path("transcripts/transcript.txt")
-        assert settings.output.format_name == "text"
-        assert settings.transcription.languages == ("en", "de", "ru")
-        assert settings.transcription.model_size == "small"
+        assert settings.output.path == Path(CONFIG.output.path)
+        assert settings.output.format_name == CONFIG.output.format
+        assert settings.transcription.languages == tuple(CONFIG.transcription.languages)
+        assert settings.transcription.model_size == CONFIG.transcription.model_size
+
+    def test_both_sources_are_captured_unless_told_otherwise(self):
+        settings = build_settings(parse_args([]))
         assert settings.capture.capture_microphone is True
         assert settings.capture.capture_system is True
 
-    def test_endpointer_defaults_match_the_documented_values(self):
+    def test_endpointer_defaults_are_taken_from_the_config_file(self):
         endpointer = build_settings(parse_args([])).endpointer
-        assert endpointer.silence_seconds == 0.7
-        assert endpointer.min_speech_seconds == 0.4
-        assert endpointer.max_speech_seconds == 20.0
-        assert endpointer.sensitivity == 3.0
+        assert endpointer.silence_seconds == CONFIG.endpointer.silence_seconds
+        assert endpointer.min_speech_seconds == CONFIG.endpointer.min_speech_seconds
+        assert endpointer.max_speech_seconds == CONFIG.endpointer.max_speech_seconds
+        assert endpointer.sensitivity == CONFIG.endpointer.sensitivity
 
 
 class TestOverrides:
@@ -79,18 +86,23 @@ class TestSettingsAreImmutable:
 
 
 class TestTranslation:
-    def test_translation_is_off_by_default(self):
+    def test_translation_defaults_come_from_the_config_file(self):
         translation = build_settings(parse_args([])).translation
-        assert translation.targets == ()
-        assert translation.enabled is False
+        assert translation.targets == tuple(CONFIG.translation.targets)
+        assert translation.enabled is bool(CONFIG.translation.targets)
+
+    def test_translation_is_off_when_no_targets_are_configured(self):
+        from soundvibes.settings import TranslationSettings
+        assert TranslationSettings(targets=()).enabled is False
 
     def test_targets_are_normalised(self):
         translation = build_settings(parse_args(["--translate", "RU, en-US ,FR"])).translation
         assert translation.targets == ("ru", "en", "fr")
         assert translation.enabled is True
 
-    def test_backend_defaults_to_the_offline_one(self):
-        assert build_settings(parse_args(["--translate", "ru"])).translation.backend == "argos"
+    def test_backend_default_comes_from_the_config_file(self):
+        settings = build_settings(parse_args(["--translate", "ru"]))
+        assert settings.translation.backend == CONFIG.translation.backend
 
     def test_backend_can_be_chosen(self):
         settings = build_settings(parse_args(["--translate", "ru", "--translator", "claude"]))

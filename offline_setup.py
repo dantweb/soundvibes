@@ -12,11 +12,11 @@ Run it directly to re-check or top up an existing install:
 """
 from __future__ import annotations
 
-import itertools
 import sys
 from pathlib import Path
 
 from soundvibes.config import CONFIG
+from soundvibes.offline import required_pairs, resolve_packages
 
 
 def report(message: str, indent: int = 0) -> None:
@@ -40,8 +40,14 @@ def fetch_whisper_model() -> bool:
     return True
 
 
-def fetch_argos_packages(languages: list[str]) -> tuple[int, int]:
-    """Install every available direct pair between the configured languages."""
+def fetch_argos_packages(sources: list[str], targets: list[str]) -> tuple[int, int]:
+    """Install what is needed to translate every spoken language into every target.
+
+    Both lists matter: `sources` is what may be spoken (transcription.languages)
+    and `targets` is what we translate into (translation.targets). A target need
+    never be spoken — translating German speech into French is the normal case —
+    so planning from the spoken languages alone leaves the real work undone.
+    """
     try:
         import argostranslate.package as package_api
     except ImportError:
@@ -50,31 +56,31 @@ def fetch_argos_packages(languages: list[str]) -> tuple[int, int]:
         return 0, 0
 
     report("argos language packages...")
+    report(f"spoken: {', '.join(sources)}   targets: {', '.join(targets)}", indent=1)
     try:
         package_api.update_package_index()
-        available = package_api.get_available_packages()
+        available = [(p.from_code, p.to_code) for p in package_api.get_available_packages()]
     except Exception as error:
         report(f"could not reach the package index: {error}", indent=1)
         return 0, 0
 
+    needed = required_pairs(sources, targets)
+    to_install, unreachable = resolve_packages(available, sources, targets)
+    report(f"{len(needed)} pair(s) needed, {len(to_install)} package(s) cover them",
+           indent=1)
+
     installed = {(p.from_code, p.to_code) for p in package_api.get_installed_packages()}
-    wanted = list(itertools.permutations(languages, 2))
+    catalogue = {(p.from_code, p.to_code): p for p in package_api.get_available_packages()}
     succeeded = failed = 0
 
-    for source, target in wanted:
-        if (source, target) in installed:
+    for pair in to_install:
+        source, target = pair
+        if pair in installed:
             report(f"{source}->{target}: already installed", indent=1)
             succeeded += 1
             continue
-        match = next((p for p in available
-                      if p.from_code == source and p.to_code == target), None)
-        if match is None:
-            # Argos often has no direct pair and routes through English instead.
-            report(f"{source}->{target}: no direct package (usually routed via en)",
-                   indent=1)
-            continue
         try:
-            package_api.install_from_path(match.download())
+            package_api.install_from_path(catalogue[pair].download())
         except Exception as error:
             report(f"{source}->{target}: FAILED - {error}", indent=1)
             failed += 1
@@ -82,19 +88,26 @@ def fetch_argos_packages(languages: list[str]) -> tuple[int, int]:
         report(f"{source}->{target}: installed", indent=1)
         succeeded += 1
 
+    for source, target in unreachable:
+        report(f"{source}->{target}: NO ROUTE - argos has no package and no "
+               f"English pivot", indent=1)
+
     return succeeded, failed
 
 
-def verify_offline_backend() -> bool:
-    """Translate one phrase to prove the offline path actually works."""
+def verify_offline_backend(sources: list[str], targets: list[str]) -> bool:
+    """Translate one phrase to prove the offline path actually works.
+
+    Verifies a pair that is genuinely needed, rather than a convenient one.
+    """
     from soundvibes.translation import ArgosTranslator, TranslationError
 
-    languages = list(CONFIG.transcription.languages)
-    if len(languages) < 2:
-        report("only one language configured - nothing to verify.", indent=1)
+    pairs = required_pairs(sources, targets)
+    if not pairs:
+        report("nothing to translate between - nothing to verify.", indent=1)
         return True
 
-    source, target = languages[0], languages[1]
+    source, target = pairs[0]
     report(f"verifying offline translation {source}->{target}...")
     try:
         translated = ArgosTranslator().translate("Hello, this is a test.",
@@ -107,17 +120,18 @@ def verify_offline_backend() -> bool:
 
 
 def main() -> int:
-    languages = list(CONFIG.transcription.languages)
+    sources = list(CONFIG.transcription.languages)
+    targets = list(CONFIG.translation.targets) or sources
     report("Preparing soundvibes for offline use")
-    report(f"languages: {', '.join(languages)}   "
-           f"config: {CONFIG.translation.backend} backend")
+    report(f"spoken: {', '.join(sources)}   translating into: {', '.join(targets)}   "
+           f"backend: {CONFIG.translation.backend}")
     report("")
 
     model_ok = fetch_whisper_model()
     report("")
-    succeeded, failed = fetch_argos_packages(languages)
+    succeeded, failed = fetch_argos_packages(sources, targets)
     report("")
-    verified = verify_offline_backend() if succeeded else False
+    verified = verify_offline_backend(sources, targets) if succeeded else False
 
     report("")
     if model_ok and verified:

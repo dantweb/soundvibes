@@ -2,17 +2,16 @@
 import pytest
 
 from conftest import FakeAudioBackend
+from soundvibes.config import CONFIG
 from soundvibes.devices import DeviceRegistry, DeviceResolutionError, is_loopback_name
 
 
 class TestLoopbackNaming:
-    @pytest.mark.parametrize("name", [
-        "BlackHole 2ch", "Soundflower (2ch)", "Loopback Audio", "VB-Cable",
-        "Stereo Mix", "Monitor of Built-in Audio Analog Stereo",  # Linux/PulseAudio
-        "Multi-Output Device", "Aggregate Device",
-    ])
-    def test_known_loopback_names_are_recognised(self, name):
-        assert is_loopback_name(name)
+    # The hint list is config.yaml's, so assert each configured hint is
+    # honoured rather than pinning a copy of today's list.
+    @pytest.mark.parametrize("hint", list(CONFIG.devices.loopback_hints))
+    def test_every_configured_hint_is_recognised(self, hint):
+        assert is_loopback_name(f"Some {hint.title()} Device")
 
     @pytest.mark.parametrize("name", [
         "MacBook Pro Microphone", "External Headphones", "USB Audio Device",
