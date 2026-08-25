@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 Daniil Tkachev
 """Launcher kept so the documented `python soundvibes.py ...` still works.
 
 The implementation lives in the `soundvibes/` package. Running this file

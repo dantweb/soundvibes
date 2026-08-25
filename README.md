@@ -376,3 +376,27 @@ make selftest                              # end-to-end, needs the model
 offline TTS (`say` on macOS, `espeak-ng` on Linux) and drives the real pipeline
 classes — still no microphone. It asserts that each phrase is transcribed, detected
 in the right language, and written to the per-language files.
+
+## Licence
+
+soundvibes is licensed under the **Business Source License 1.1** — see
+[`LICENSE`](LICENSE) for the full text.
+
+| | |
+| --- | --- |
+| Licensor | Daniil Tkachev |
+| Change Date | 2030-08-25 |
+| Change License | Apache License 2.0 |
+
+**In plain terms.** Use it for yourself and inside your company as much as you
+like, including at work and for commercial purposes. What needs a licence from
+the Licensor is offering soundvibes — or something derived from it — to third
+parties as a hosted or managed service, or as part of a product whose value comes
+substantially from what soundvibes does.
+
+On 25 August 2030 the licence converts automatically to Apache 2.0, and these
+restrictions fall away.
+
+BSL is **source-available, not open source**: you can read, modify and
+redistribute the code today, but the grant above is narrower than an OSI licence
+until the Change Date. GitHub will show it as "Other" for that reason.
