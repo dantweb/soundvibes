@@ -28,7 +28,7 @@ Everything is a make target:
 | `make start fr de` | ...several languages at once |
 | `make start-d` | transcribe in the background |
 | `make start-d fr` | ...with a French translation running alongside |
-| `make stop` | stop the background transcription (drains the queue first) |
+| `make stop` | stop a running transcription, background or inline (drains the queue first) |
 | `make status` | is it running, and what has it written |
 | `make logs` | follow the background transcript live |
 | `make test` | fast unit suite — no model, no microphone |
@@ -43,6 +43,10 @@ Background runs write their pid to `var/soundvibes.pid` and their output to
 `var/soundvibes.log`. `make stop` sends SIGTERM so the queue is drained and the
 last utterances still land in the transcript; it escalates to SIGKILL only if the
 process is still alive after 15 seconds.
+
+`make stop` and `make status` cover **both** kinds of run. An inline `make start`
+has no pid file, so they fall back to finding the process — reporting "not
+running" while a transcription is plainly running would be worse than useless.
 
 Asking for a translation without a working backend stops before recording rather
 than filling `translate.FR.txt` with nothing:

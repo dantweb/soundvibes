@@ -32,8 +32,8 @@ LOG_FILE := $(RUN_DIR)/soundvibes.log
 STOP_TIMEOUT := 15
 
 # Commands, as opposed to language arguments.
-COMMANDS := help start start-d stop restart status logs install offline \
-            test selftest clean venv translate-ready
+COMMANDS := help start start-d stop _stop-pid restart status logs install \
+            offline test selftest clean venv translate-ready
 
 # Anything else on the command line is a language: `make start fr de`
 COMMA := ,
@@ -94,27 +94,47 @@ start-d: venv translate-ready
 	  tail -n 15 $(LOG_FILE); rm -f $(PID_FILE); exit 1; \
 	fi
 
+# Stops a detached run via its pid file, and an inline one (`make start`) by
+# finding it — reporting "not running" while a transcription is clearly running
+# is worse than useless.
 stop:
-	@if [ ! -f $(PID_FILE) ]; then echo "Not running (no $(PID_FILE))."; exit 0; fi; \
-	pid=$$(cat $(PID_FILE)); \
-	if ! kill -0 "$$pid" 2>/dev/null; then \
-	  echo "Not running (stale pid $$pid); cleaning up."; rm -f $(PID_FILE); exit 0; \
+	@stopped=0; \
+	if [ -f $(PID_FILE) ]; then \
+	  pid=$$(cat $(PID_FILE)); \
+	  if kill -0 "$$pid" 2>/dev/null; then \
+	    $(MAKE) --no-print-directory _stop-pid PID=$$pid SOURCE="background"; \
+	    stopped=1; \
+	  else \
+	    echo "Stale pid $$pid in $(PID_FILE); cleaning up."; \
+	  fi; \
+	  rm -f $(PID_FILE); \
 	fi; \
-	echo "Stopping pid $$pid (draining the queue)..."; \
-	kill "$$pid"; \
-	for i in $$(seq 1 $(STOP_TIMEOUT)); do \
-	  kill -0 "$$pid" 2>/dev/null || break; sleep 1; \
+	for pid in $$(pgrep -f "soundvibes.py -o" 2>/dev/null); do \
+	  $(MAKE) --no-print-directory _stop-pid PID=$$pid SOURCE="inline"; \
+	  stopped=1; \
 	done; \
-	if kill -0 "$$pid" 2>/dev/null; then \
-	  echo "Still alive after $(STOP_TIMEOUT)s; sending SIGKILL."; kill -9 "$$pid"; \
+	if [ "$$stopped" = "0" ]; then echo "Not running."; fi
+
+# Send SIGTERM so the queue drains and the last utterances still reach the
+# transcript; escalate only if it is still alive after STOP_TIMEOUT.
+_stop-pid:
+	@echo "Stopping $(SOURCE) transcription (pid $(PID)), draining the queue..."
+	@kill $(PID) 2>/dev/null || true
+	@for i in $$(seq 1 $(STOP_TIMEOUT)); do \
+	  kill -0 $(PID) 2>/dev/null || break; sleep 1; \
+	done; \
+	if kill -0 $(PID) 2>/dev/null; then \
+	  echo "Still alive after $(STOP_TIMEOUT)s; sending SIGKILL."; kill -9 $(PID); \
 	fi; \
-	rm -f $(PID_FILE); echo "Stopped."
+	echo "Stopped."
 
 restart: stop start-d
 
 status:
 	@if [ -f $(PID_FILE) ] && kill -0 "$$(cat $(PID_FILE))" 2>/dev/null; then \
-	  echo "running (pid $$(cat $(PID_FILE)))"; \
+	  echo "running in the background (pid $$(cat $(PID_FILE)))"; \
+	elif pgrep -f "soundvibes.py -o" >/dev/null 2>&1; then \
+	  echo "running inline (pid $$(pgrep -f 'soundvibes.py -o' | tr '\n' ' '))"; \
 	else \
 	  echo "not running"; \
 	fi
