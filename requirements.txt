@@ -1,0 +1,4 @@
+numpy>=1.26
+sounddevice>=0.4.6
+soxr>=0.3.7
+faster-whisper>=1.0.0
