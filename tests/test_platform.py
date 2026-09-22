@@ -28,6 +28,14 @@ class TestLoopbackGuidance:
         assert "pulseaudio" in lowered or "pipewire" in lowered
         assert "blackhole" not in lowered  # no macOS advice on Linux
 
+    def test_linux_explains_how_to_make_the_monitor_visible_to_portaudio(self):
+        """PortAudio only sees a generic 'pulse' ALSA device, never the individual
+        PulseAudio sources, so a monitor has to be given a PCM name of its own."""
+        help_text = LinuxPlatform().loopback_help()
+        assert ".asoundrc" in help_text
+        assert "type pulse" in help_text
+        assert "--system-device monitor" in help_text
+
     def test_generic_still_explains_the_concept(self):
         assert "loopback" in GenericPlatform().loopback_help().lower()
 

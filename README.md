@@ -13,7 +13,7 @@ Runs on **macOS and Linux**.
 ## Quick start
 
 ```bash
-make install            # create the venv and install dependencies
+make install offline    # create the venv and install dependencies
 make start              # transcribe in this terminal; Ctrl-C stops it
 ```
 
@@ -49,7 +49,8 @@ has no pid file, so they fall back to finding the process — reporting "not
 running" while a transcription is plainly running would be worse than useless.
 
 Asking for a translation without a working backend stops before recording rather
-than filling `translate.FR.txt` with nothing:
+than filling `translate.FR.txt` with nothing. This covers languages given on the
+command line and the `translation.targets` list in `config.yaml` alike:
 
 ```
 $ make start fr
@@ -64,7 +65,7 @@ is not installed, so the translate.*.txt files would stay empty.
 
 ```bash
 cd soundvibes
-make install          # or ./setup.sh directly
+make install offline         # or ./setup.sh directly
 ```
 
 This creates `.venv/`, installs the dependencies, and tells you what — if
@@ -121,15 +122,31 @@ BlackHole directly as the output also works, but then you hear nothing.)
 ### Linux
 
 No extra driver is needed — PulseAudio and PipeWire already expose every sink's
-output as a `.monitor` source. It only has to be visible to PortAudio:
+output as a `.monitor` source. The catch is that PortAudio talks to ALSA, and the
+ALSA pulse plugin exposes one generic `pulse` device, not the individual sources.
+Give the monitor a name PortAudio can see:
 
 ```bash
-pactl list short sources | grep monitor      # find it
+pactl list short sources | grep monitor      # note the monitor's name
+```
+
+```
+# ~/.asoundrc  (or ~/.config/alsa/asoundrc)
+pcm.monitor {
+  type pulse
+  device "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"   # yours from pactl
+  hint { description "Monitor of the speakers" }
+}
+```
+
+```bash
+./.venv/bin/python soundvibes.py --list-devices       # "monitor" is now listed
 ./.venv/bin/python soundvibes.py --system-device monitor
 ```
 
-If no monitor source appears in `--list-devices`, install the PulseAudio ALSA
-plugin (`libasound2-plugins` and `pulseaudio-module-alsa` on Debian/Ubuntu,
+`make install` prints this snippet with your monitor's name filled in. If `pactl`
+lists no monitor source at all, install the PulseAudio ALSA plugin
+(`libasound2-plugins` and `pulseaudio-module-alsa` on Debian/Ubuntu,
 `alsa-plugins-pulseaudio` on Fedora) and try again. On a bare-ALSA system without
 a sound server, load `snd-aloop` and capture from the loopback device instead.
 

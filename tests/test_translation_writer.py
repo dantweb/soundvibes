@@ -5,17 +5,20 @@ import pytest
 
 from soundvibes.formatters import TextFormatter
 from soundvibes.models import TranscriptLine
-from soundvibes.translation import FILE_PREFIX
+from soundvibes.translation import FILE_PREFIX, TranslatorUnavailable
 from soundvibes.writer import CompositeWriter, TranscriptWriter, TranslationWriter
 
 
 class StubTranslator:
-    def __init__(self, failing_targets=()):
+    def __init__(self, failing_targets=(), unavailable=False):
         self.calls = []
         self._failing_targets = set(failing_targets)
+        self._unavailable = unavailable
 
     def translate(self, text, source_language, target_language):
         self.calls.append((text, source_language, target_language))
+        if self._unavailable:
+            raise TranslatorUnavailable("backend is not installed")
         if target_language in self._failing_targets:
             raise RuntimeError("backend exploded")
         return f"<{target_language}>{text}"
@@ -118,6 +121,30 @@ class TestFailureHandling:
         writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(),
                                    StubTranslator(failing_targets={"ru"}), ["ru"])
         writer.write(line())  # must not raise
+        writer.close()
+
+    def test_a_missing_backend_is_reported_once_then_translation_stops(self, tmp_path, capsys):
+        """Six targets times every utterance is the same install hint over and over.
+        Say it once and stop asking."""
+        translator = StubTranslator(unavailable=True)
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(), translator,
+                                   ["ru", "pl", "hu"])
+
+        writer.write(line("Guten Tag.", "de"))
+        writer.write(line("Hello there.", "en"))
+        writer.close()
+
+        assert writer.disabled
+        assert translator.calls == [("Guten Tag.", "de", "ru")]
+        errors = capsys.readouterr().err
+        assert errors.count("not installed") == 1
+        assert "switched off for the rest of this run" in errors
+
+    def test_a_missing_backend_still_returns_the_line_to_the_pipeline(self, tmp_path):
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(),
+                                   StubTranslator(unavailable=True), ["ru"])
+        assert writer.write(line("Guten Tag.")) == "Guten Tag."
+        assert writer.write(line("Noch einmal.")) == "Noch einmal."
         writer.close()
 
 

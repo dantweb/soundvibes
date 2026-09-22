@@ -64,8 +64,27 @@ EOF
   if command -v pactl >/dev/null 2>&1; then
     echo
     echo "==> System-audio (SYS) capture: these monitor sources were found"
-    pactl list short sources 2>/dev/null | grep -i monitor | sed 's/^/    /' \
-      || echo "    (none - see README, you may need the PulseAudio ALSA plugin)"
+    monitor="$(pactl list short sources 2>/dev/null | awk '/monitor/ {print $2; exit}')"
+    if [ -n "$monitor" ]; then
+      pactl list short sources 2>/dev/null | grep -i monitor | sed 's/^/    /'
+      if [ ! -f ~/.asoundrc ] && [ ! -f ~/.config/alsa/asoundrc ]; then
+        cat <<EOF
+
+    PortAudio cannot see PulseAudio sources directly. To capture the monitor,
+    create ~/.asoundrc with:
+
+        pcm.monitor {
+          type pulse
+          device "$monitor"
+          hint { description "Monitor of the speakers" }
+        }
+
+    then run with:  --system-device monitor
+EOF
+      fi
+    else
+      echo "    (none - see README, you may need the PulseAudio ALSA plugin)"
+    fi
   else
     echo
     echo "==> pactl not found; if you use PulseAudio/PipeWire install pulseaudio-utils"

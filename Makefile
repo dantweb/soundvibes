@@ -55,12 +55,18 @@ venv:
 # ── running ──────────────────────────────────────────────────────────────
 
 # Refuse to start with translation requested but no working backend, rather
-# than running happily and leaving the translate.*.txt files empty.
+# than running happily and leaving the translate.*.txt files empty. Languages
+# come from the command line (`make start fr`) or, failing that, from the
+# translation.targets list in config.yaml - both must be guarded.
 translate-ready:
-	@if [ -n "$(LANGS)" ] \
+	@langs="$(LANGS)"; \
+	if [ -z "$$langs" ]; then \
+	  langs="$$($(PYTHON) -c 'from soundvibes.config import CONFIG; print(",".join(CONFIG.translation.targets))')"; \
+	fi; \
+	if [ -n "$$langs" ] \
 	   && [ "$$($(PYTHON) -c 'from soundvibes.config import CONFIG; print(CONFIG.translation.backend)')" = "argos" ] \
 	   && ! $(PIP) show argostranslate >/dev/null 2>&1; then \
-	  echo "Translation into [$(LANGS)] was requested, but the offline backend"; \
+	  echo "Translation into [$$langs] was requested, but the offline backend"; \
 	  echo "is not installed, so the translate.*.txt files would stay empty."; \
 	  echo; \
 	  echo "  make install offline      install it (large: stanza, spacy, torch)"; \

@@ -49,9 +49,7 @@ transcription:
     - "untertitel von stephanie geiges"
     - "untertitelung des zdf, 2020"
     - "продолжение следует..."
-    - "субтитры сделал dimatorzok"
-    - "редактор субтитров а.синецкая корректор а.егорова"
-    - "amara.org"
+    - "субтитры сделал"
 
 translation:
   backend: argos              # argos (offline) | claude (API) | none

@@ -10,6 +10,7 @@ from typing import Optional, Protocol, Sequence, Union
 from .config import CONFIG
 from .formatters import LineFormatter, create_formatter
 from .models import TranscriptLine
+from .translation import TranslatorUnavailable
 
 
 class TranscriptSink(Protocol):
@@ -112,6 +113,7 @@ class TranslationWriter:
         self._path = Path(path)
         self._on_line = on_line
         self.failures = 0
+        self.disabled = False
 
         self._sinks: dict[str, TranscriptSink] = {}
         for code in target_languages:
@@ -125,8 +127,12 @@ class TranslationWriter:
     def write(self, line: TranscriptLine) -> str:
         from .translation import normalise_language  # noqa: PLC0415
 
+        if self.disabled:
+            return line.text
         source_language = normalise_language(line.language)
         for language, sink in self._sinks.items():
+            if self.disabled:
+                break
             text = self._text_for(line, source_language, language)
             if text is None:
                 continue
@@ -149,6 +155,15 @@ class TranslationWriter:
             return line.text  # already in the target language; nothing to do
         try:
             return self._translator.translate(line.text, source_language, target_language)
+        except TranslatorUnavailable as error:
+            # Nothing will change for the rest of the run, so say it once and
+            # stop trying, rather than once per language per utterance.
+            self.failures += 1
+            self.disabled = True
+            print(f"[translate] {error}\n"
+                  f"Translation is switched off for the rest of this run.",
+                  file=sys.stderr)
+            return None
         except Exception as error:  # noqa: BLE001 - one target must not sink the rest
             self.failures += 1
             print(f"[translate:{target_language}] {error}", file=sys.stderr)

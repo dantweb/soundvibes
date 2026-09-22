@@ -88,7 +88,15 @@ class TestBackendsFailLoudlyWhenUnavailable:
         from soundvibes import translation
 
         monkeypatch.setattr(translation, "_import_argos", _raise_import)
-        with pytest.raises(TranslationError, match="pip install"):
+        with pytest.raises(translation.TranslatorUnavailable, match="make install offline"):
+            translation.ArgosTranslator().translate("hallo", "de", "en")
+
+    def test_a_missing_dependency_is_still_a_translation_error(self, monkeypatch):
+        """Callers that only know TranslationError keep working."""
+        from soundvibes import translation
+
+        monkeypatch.setattr(translation, "_import_argos", _raise_import)
+        with pytest.raises(TranslationError):
             translation.ArgosTranslator().translate("hallo", "de", "en")
 
 

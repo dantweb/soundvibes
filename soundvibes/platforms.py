@@ -68,22 +68,31 @@ class LinuxPlatform:
         return """\
 No loopback device found, so system audio (SYS) will NOT be captured.
 
-On Linux the output of a sink is already exposed as a ".monitor" source, so no
-extra driver is needed - it just has to be visible to PortAudio:
+On Linux the output of a sink is already exposed as a ".monitor" source, but
+PortAudio talks to ALSA, and the ALSA pulse plugin shows it one generic "pulse"
+device rather than the individual sources. Point a named PCM at the monitor:
 
     PulseAudio / PipeWire (most desktops):
-        pactl list short sources | grep monitor      # find the monitor source
-        soundvibes --system-device monitor           # or pass its exact name
+        pactl list short sources | grep monitor      # note the monitor's name
 
-    If no monitor source appears, make sure the PulseAudio/PipeWire ALSA plugin
-    is installed (Debian/Ubuntu: libasound2-plugins, pulseaudio-module-alsa;
-    Fedora: alsa-plugins-pulseaudio), then re-run --list-devices.
+        # ~/.asoundrc  (or ~/.config/alsa/asoundrc)
+        pcm.monitor {
+          type pulse
+          device "alsa_output.<your-sink>.monitor"   # the name from pactl
+          hint { description "Monitor of the speakers" }
+        }
+
+        soundvibes --system-device monitor           # it now appears in --list-devices
+
+    If pactl lists no monitor source at all, make sure the PulseAudio/PipeWire
+    ALSA plugin is installed (Debian/Ubuntu: libasound2-plugins,
+    pulseaudio-module-alsa; Fedora: alsa-plugins-pulseaudio).
 
     ALSA only, no sound server:
         load snd-aloop and capture from the loopback device, or route the
         application through it.
 
-soundvibes recognises a monitor source automatically on the next run.
+Microphone (MIC) capture works without any of this.
 """
 
     def synthesis_command(self, text: str, output_path: str, language: str) -> list[str]:

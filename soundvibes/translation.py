@@ -32,6 +32,14 @@ class TranslationError(RuntimeError):
     """A backend could not translate — missing dependency, model or network."""
 
 
+class TranslatorUnavailable(TranslationError):
+    """The backend cannot work at all in this run: a dependency is missing.
+
+    Distinct from a per-line failure so the writer can report it once and stop
+    asking, instead of repeating the same install hint for every utterance.
+    """
+
+
 def normalise_language(code: str) -> str:
     """'RU' / 'en-US' / ' Fr ' -> 'ru' / 'en' / 'fr'."""
     return _LANGUAGE_SEPARATORS.split(code.strip().lower())[0]
@@ -110,9 +118,9 @@ class ArgosTranslator:
         try:
             return _import_argos()
         except ImportError as error:
-            raise TranslationError(
+            raise TranslatorUnavailable(
                 "Offline translation needs Argos Translate, which is not installed:\n"
-                "    pip install argostranslate\n"
+                "    make install offline\n"
                 "Or choose another backend with --translator claude."
             ) from error
 
@@ -199,7 +207,7 @@ class ClaudeTranslator:
             try:
                 import anthropic  # noqa: PLC0415
             except ImportError as error:
-                raise TranslationError(
+                raise TranslatorUnavailable(
                     "The claude backend needs the Anthropic SDK:\n"
                     "    pip install anthropic"
                 ) from error
