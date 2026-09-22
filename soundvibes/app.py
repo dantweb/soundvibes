@@ -22,7 +22,7 @@ from .platforms import Platform, platform_for
 from .settings import Settings
 from .transcription import TranscriptionService, WhisperEngine
 from .translation import CachingTranslator, create_translator
-from .writer import CompositeWriter, TranscriptWriter, TranslationWriter
+from .writer import BackgroundWriter, CompositeWriter, TranscriptWriter, TranslationWriter
 
 
 class Application:
@@ -58,9 +58,10 @@ class Application:
             languages=settings.transcription.languages,
             beam_size=settings.transcription.beam_size,
         )
+        # Echoing is the writers' job (see _build_writer), so the original line
+        # reaches the console before its translations are even queued.
         writer = self._build_writer()
-        echo = None if settings.output.quiet else self._echo
-        pipeline = TranscriptionPipeline(service, writer, on_line=echo)
+        pipeline = TranscriptionPipeline(service, writer)
 
         self._install_signal_handlers()
         for source in sources:
@@ -85,11 +86,13 @@ class Application:
 
     def _build_writer(self):
         settings = self._settings
+        echo = None if settings.output.quiet else self._echo
         transcript = TranscriptWriter(
             path=settings.output.path,
             formatter=settings.output.format_name,
             split_by_language=settings.output.split_by_language,
             languages=settings.transcription.languages,
+            on_line=echo,
         )
         if not settings.translation.enabled:
             return transcript
@@ -103,13 +106,28 @@ class Application:
             translator=translator,
             target_languages=settings.translation.targets,
             # Show the translation as it happens, not just write it to a file.
-            on_line=None if settings.output.quiet else self._echo,
+            on_line=echo,
         )
         self._announce(
             f"Translating into {'/'.join(settings.translation.targets)} "
             f"via {settings.translation.backend}"
         )
-        return CompositeWriter(transcript, translations)
+        # Translation is slow and must not hold up the next utterance: it runs
+        # on its own thread and trails the transcript by however long it takes.
+        # The models are loaded on that thread while we start listening.
+        spoken = settings.transcription.languages
+
+        def warm_up() -> None:
+            translations.warm_up(spoken[0] if spoken else "en")
+            if not translations.disabled:
+                self._announce("Translation ready.")
+
+        return CompositeWriter(
+            transcript,
+            BackgroundWriter(
+                translations, name="translation", announce=self._announce, prepare=warm_up
+            ),
+        )
 
     def build_sources(self, utterances: queue.Queue[Utterance]) -> list[AudioSource]:
         capture = self._settings.capture
@@ -146,6 +164,8 @@ class Application:
                 silence_seconds=endpointer_settings.silence_seconds,
                 min_speech_seconds=endpointer_settings.min_speech_seconds,
                 max_speech_seconds=endpointer_settings.max_speech_seconds,
+                eager_after_seconds=endpointer_settings.eager_after_seconds,
+                eager_silence_seconds=endpointer_settings.eager_silence_seconds,
                 preroll_seconds=endpointer_settings.preroll_seconds,
                 sensitivity=endpointer_settings.sensitivity,
                 absolute_floor=endpointer_settings.absolute_floor,

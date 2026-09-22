@@ -1,15 +1,17 @@
 # soundvibes configuration — the single source of every tunable value.
 #
-# This is the active configuration. config.yaml.dist next to it is the full
-# template with every language the project has been used with; copy it over
-# this file to start again from the complete set.
+# This is the TEMPLATE (config.yaml.dist): it lists every language the project
+# has been used with. The active configuration is config.yaml next to it; copy
+# this file over it to start again from the complete set:
+#
+#     cp config.yaml.dist config.yaml
 #
 # Nothing here is duplicated in the Python source: the modules read these
-# values, they do not carry their own defaults. Edit this file to change
+# values, they do not carry their own defaults. Edit config.yaml to change
 # behaviour globally; use command-line flags to change it for one run.
 #
 # Load order: $SOUNDVIBES_CONFIG, then ./config.yaml, then the copy that ships
-# next to the package, then config.yaml.dist.
+# next to the package, then this file.
 
 audio:
   sample_rate: 16000          # what whisper expects; changing it breaks the model
@@ -41,7 +43,7 @@ endpointer:
   noise_adaption: 0.05        # how fast the idle noise estimate follows the room
 
 transcription:
-  languages: [de]                  # only German is spoken here; one entry skips detection
+  languages: [en, de, ru, fr]      # what may be SPOKEN; one entry skips detection
   model_size: small           # tiny | base | small | medium | large-v3
   device: cpu                 # cpu | cuda
   compute_type: int8
@@ -63,7 +65,7 @@ transcription:
 
 translation:
   backend: argos              # argos (offline) | claude (API) | none
-  targets: [en]                    # what to translate INTO -> translate.EN.txt
+  targets: [ru, pl, hu, fi, bg, ar]  # what to translate INTO -> translate.RU.txt, ...
   file_prefix: translate      # translate.RU.txt
   cache_entries: 512          # live speech repeats; bounded so it cannot grow forever
   claude:

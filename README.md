@@ -222,9 +222,11 @@ is acceptable.
 A failing backend never takes down the recording: the failure is reported on
 stderr, that one target file misses that one line, and everything else continues.
 
-Note that translation happens inline, so a slow backend adds latency between
-speech and the transcript line appearing. The utterance queue absorbs it — nothing
-is lost — but the transcript can lag behind the conversation.
+Translation runs on its own thread, so a slow backend never delays the transcript:
+the original line is echoed first, and its translations follow when they are ready,
+each carrying the original's timestamp. The translation models are loaded while
+soundvibes starts listening ("Translation ready." marks the end of that), and
+Ctrl-C finishes the queued translations before exiting.
 
 ## Configuration
 
@@ -232,9 +234,16 @@ Every tunable value lives in one file: **`config.yaml`**. The modules read from
 it and carry no defaults of their own, so there is one place to look and no
 chance of a literal in the source disagreeing with the documented value.
 
+`config.yaml` is the active configuration; **`config.yaml.dist`** beside it is
+the full template with every language the project has been used with. Copy it
+over `config.yaml` to start again from the complete set.
+
 ```yaml
 endpointer:
   silence_seconds: 0.7        # silence that ends an utterance
+  eager_after_seconds: 3.0    # after this much speech...
+  eager_silence_seconds: 0.2  # ...a breath-length pause is enough to cut
+  max_speech_seconds: 10.0    # hard limit, cut even mid-word
   sensitivity: 3.0            # threshold as a multiple of the noise floor
 
 transcription:
@@ -280,6 +289,7 @@ Load order — first hit wins:
 1. `$SOUNDVIBES_CONFIG`
 2. `./config.yaml` in the working directory
 3. the copy shipped next to the package
+4. `config.yaml.dist`, if `config.yaml` was deleted
 
 
 ## Useful options
@@ -294,6 +304,8 @@ Load order — first hit wins:
 | `--input-device`, `--system-device` | pick devices by index or partial name |
 | `--no-mic`, `--no-system` | capture only one side |
 | `--silence 0.7` | seconds of silence that end an utterance |
+| `--eager-after 3`, `--eager-silence 0.2` | once speech has run this long, this shorter pause ends it — keeps up with continuous speakers |
+| `--max-speech 10` | hard limit per utterance, cut even mid-word |
 | `--min-speech 0.4` | discard utterances with less speech than this |
 | `--sensitivity 3.0` | speech threshold as a multiple of the noise floor (lower = more sensitive) |
 | `--translate ru,en,fr` | also write `translate.RU.txt`, `translate.EN.txt`, … |
@@ -326,7 +338,9 @@ is deliberate: buffering to enforce ordering would add latency to a live transcr
 
 Each source runs its own capture thread with an independent adaptive noise floor,
 so a loud speaker output does not desensitise the microphone. Utterances are cut on
-~0.7 s of silence (max 20 s) and queued to a single transcription thread. Whisper's
+~0.7 s of silence — or, once 3 s of speech have accumulated, on a 0.2 s breath, so a
+continuous speaker (news, a lecture) is transcribed in sentence-sized pieces instead
+of 10 s blocks — and queued to a single transcription thread. Whisper's
 own VAD filter and a no-speech/low-confidence check drop the "Thank you." style
 hallucinations it produces on silence and music.
 

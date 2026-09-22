@@ -15,6 +15,7 @@ A backend is a class with one method. Adding one is `register_translator`.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import OrderedDict
 from collections.abc import Callable
@@ -84,11 +85,32 @@ class CachingTranslator:
         return translated
 
 
+class _DropStanzaDefaultsNotice(logging.Filter):
+    """Drops 'Language en package default expects mwt, which has been added'."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "expects mwt" not in record.getMessage()
+
+
+def quiet_argos_dependencies() -> None:
+    """Stop stanza logging 'Language en package default expects mwt, which has
+    been added' at WARNING level on every single translation. It is stanza
+    telling itself about its own defaults; nothing the user can act on.
+
+    A filter rather than a level: argos constructs stanza's Pipeline with its
+    own logging_level, which resets whatever level was set on the logger.
+    """
+    logger = logging.getLogger("stanza")
+    if not any(isinstance(f, _DropStanzaDefaultsNotice) for f in logger.filters):
+        logger.addFilter(_DropStanzaDefaultsNotice())
+
+
 def _import_argos():
     """Isolated so the missing-dependency path is testable."""
     import argostranslate.package  # noqa: PLC0415
     import argostranslate.translate  # noqa: PLC0415
 
+    quiet_argos_dependencies()
     return argostranslate.package, argostranslate.translate
 
 
