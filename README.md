@@ -435,11 +435,24 @@ soundvibes is licensed under the **Business Source License 1.1** — see
 | Change Date | 2030-08-25 |
 | Change License | Apache License 2.0 |
 
-**In plain terms.** Use it for yourself and inside your company as much as you
-like, including at work and for commercial purposes. What needs a licence from
-the Licensor is offering soundvibes — or something derived from it — to third
-parties as a hosted or managed service, or as part of a product whose value comes
-substantially from what soundvibes does.
+**In plain terms.**
+
+- **Personal use is free.** That includes using it at work on your own
+  initiative, as long as your organization is not behind that use.
+- **Corporate use needs a paid licence.** Use by or within an organization —
+  a company, public body, non-profit or any other legal entity — is Corporate
+  Use. That explicitly includes the organization deploying, provisioning,
+  mandating, **recommending**, endorsing or otherwise promoting soundvibes to
+  its employees, members or contractors. A recommendation alone counts, and
+  everyone using soundvibes after it counts as one of that organization's users.
+- **The fee** is 10 USD per user per month, paid by the organization yearly in
+  advance (120 USD per user per licence year), for every user during that year.
+- **Resale is separate.** Offering soundvibes — or something derived from it — to
+  third parties as a hosted or managed service, or as part of a product whose
+  value comes substantially from what soundvibes does, always needs its own
+  commercial licence.
+
+To obtain a licence, contact the Licensor via the repository.
 
 On 25 August 2030 the licence converts automatically to Apache 2.0, and these
 restrictions fall away.
