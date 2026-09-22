@@ -223,3 +223,72 @@ class TestEcho:
 
         assert len(echoed) == 1
         assert "[fr]" in echoed[0]
+
+
+class TestConsoleOrdering:
+    """The original line must reach the console before any translation of it.
+
+    Before, the pipeline echoed the primary rendering only after the composite
+    returned, and the composite had already run (and echoed) every translation.
+    """
+
+    def test_primary_echo_precedes_translation_echo(self, tmp_path):
+        echoed = []
+        transcript = TranscriptWriter(tmp_path / "t.txt", TextFormatter(), on_line=echoed.append)
+        translation = TranslationWriter(
+            tmp_path / "t.txt",
+            TextFormatter(),
+            StubTranslator(),
+            ["ru", "fr"],
+            on_line=echoed.append,
+        )
+        writer = CompositeWriter(transcript, translation)
+
+        writer.write(line("Guten Tag.", "de"))
+        writer.close()
+
+        assert [e.split("] [")[2][:2] for e in echoed] == ["de", "ru", "fr"]
+
+
+class TestWarmUp:
+    def test_every_target_is_exercised_once(self, tmp_path):
+        translator = StubTranslator()
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(), translator, ["ru", "fr"])
+
+        writer.warm_up("de")
+        writer.close()
+
+        assert [(src, dst) for _, src, dst in translator.calls] == [("de", "ru"), ("de", "fr")]
+
+    def test_the_source_language_itself_is_skipped(self, tmp_path):
+        translator = StubTranslator()
+        writer = TranslationWriter(tmp_path / "t.txt", TextFormatter(), translator, ["de", "en"])
+
+        writer.warm_up("de")
+        writer.close()
+
+        assert [(src, dst) for _, src, dst in translator.calls] == [("de", "en")]
+
+    def test_nothing_is_written_or_echoed(self, tmp_path):
+        echoed = []
+        writer = TranslationWriter(
+            tmp_path / "t.txt", TextFormatter(), StubTranslator(), ["ru"], on_line=echoed.append
+        )
+
+        writer.warm_up("de")
+        writer.close()
+
+        assert echoed == []
+        body = (tmp_path / f"{FILE_PREFIX}.RU.txt").read_text()
+        assert "Guten Tag" not in body
+
+    def test_an_unavailable_backend_disables_translation_once(self, tmp_path, capsys):
+        writer = TranslationWriter(
+            tmp_path / "t.txt", TextFormatter(), StubTranslator(unavailable=True), ["ru", "fr"]
+        )
+
+        writer.warm_up("de")
+        writer.close()
+
+        assert writer.disabled
+        assert capsys.readouterr().err.count("switched off") == 1

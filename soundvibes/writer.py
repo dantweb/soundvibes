@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import queue
 import sys
-from collections.abc import Sequence
+import threading
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Protocol
@@ -41,7 +43,12 @@ class FileSink:
 
 
 class TranscriptWriter:
-    """Renders each line once and fans it out to the main and per-language files."""
+    """Renders each line once and fans it out to the main and per-language files.
+
+    `on_line` is called with the rendered line as soon as it is written - before
+    any additional writer (translation) gets to see the line - so the console
+    always shows the original ahead of its translations.
+    """
 
     def __init__(
         self,
@@ -50,9 +57,11 @@ class TranscriptWriter:
         split_by_language: bool = False,
         languages: Sequence[str] = (),
         sink_factory=FileSink,
+        on_line: Callable[[str], None] | None = None,
     ) -> None:
         self._formatter = create_formatter(formatter) if isinstance(formatter, str) else formatter
         self._path = Path(path)
+        self._on_line = on_line
         self._main = sink_factory(self._path)
         self._per_language: dict[str, TranscriptSink] = {}
         if split_by_language:
@@ -65,6 +74,8 @@ class TranscriptWriter:
         rendered = self._formatter.format(line)
         for sink in self._sinks_for(line.language):
             sink.write(rendered)
+        if self._on_line is not None:
+            self._on_line(rendered)
         return rendered
 
     def close(self) -> None:
@@ -146,6 +157,29 @@ class TranslationWriter:
         for sink in self._sinks.values():
             sink.close()
 
+    def warm_up(self, source_language: str, sample: str = "Guten Tag.") -> None:
+        """Load every target's model now, so the first real line is not held up.
+
+        Argos takes tens of seconds the first time a language pair is used
+        (ctranslate2 model, stanza sentence splitter). Doing it while the
+        program starts listening keeps that cost out of the conversation.
+        """
+        from .translation import normalise_language  # noqa: PLC0415
+
+        probe = TranscriptLine(
+            source="warm-up",
+            language=source_language,
+            text=sample,
+            started_at=dt.datetime.now(),
+            duration_seconds=0.0,
+            language_probability=1.0,
+        )
+        source = normalise_language(source_language)
+        for target in self._sinks:
+            if self.disabled:
+                return
+            self._text_for(probe, source, target)
+
     # ── internals ────────────────────────────────────────────────────────
 
     def _text_for(
@@ -177,6 +211,74 @@ class TranslationWriter:
             return
         for sink in self._sinks.values():
             sink.write(header)
+
+
+_STOP = object()
+
+
+class BackgroundWriter:
+    """Runs another writer on its own thread, so slow work never stalls the transcript.
+
+    Translation is the case that matters: six argos targets take around twenty
+    seconds on a laptop CPU, and doing that inline held up every utterance that
+    followed. `write` only queues the line and returns at once; the wrapped
+    writer sees the lines in order on the worker thread. `close` finishes the
+    backlog before closing the wrapped writer, so Ctrl-C loses nothing.
+    """
+
+    def __init__(
+        self,
+        inner,
+        name: str = "background",
+        announce=None,
+        prepare: Callable[[], None] | None = None,
+    ) -> None:
+        self._inner = inner
+        self._name = name
+        self._announce = announce
+        self._prepare = prepare
+        self._queue: queue.Queue = queue.Queue()
+        self.errors = 0
+        self.ready = threading.Event()
+        self._thread = threading.Thread(target=self._run, name=f"{name}-writer", daemon=True)
+        self._thread.start()
+
+    @property
+    def pending(self) -> int:
+        """Lines queued but not yet handled by the wrapped writer."""
+        return self._queue.qsize()
+
+    def write(self, line: TranscriptLine) -> str:
+        self._queue.put(line)
+        return line.text
+
+    def close(self) -> None:
+        backlog = self.pending
+        if backlog and self._announce is not None:
+            self._announce(f"Finishing {backlog} queued {self._name} line(s)...")
+        self._queue.put(_STOP)
+        self._thread.join()
+        self._inner.close()
+
+    def _run(self) -> None:
+        # `prepare` (model warm-up) runs here, on the worker, so the caller's
+        # thread is never blocked and lines queued meanwhile are kept in order.
+        if self._prepare is not None:
+            try:
+                self._prepare()
+            except Exception as error:  # noqa: BLE001 - a failed warm-up is not fatal
+                self.errors += 1
+                print(f"[{self._name}] warm-up failed: {error}", file=sys.stderr)
+        self.ready.set()
+        while True:
+            item = self._queue.get()
+            if item is _STOP:
+                return
+            try:
+                self._inner.write(item)
+            except Exception as error:  # noqa: BLE001 - the worker must outlive one bad line
+                self.errors += 1
+                print(f"[{self._name}] {error}", file=sys.stderr)
 
 
 class CompositeWriter:

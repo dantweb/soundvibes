@@ -210,3 +210,42 @@ class TestArgosPackageHandling:
 
         with pytest.raises(TranslationError, match="de->ru"):
             ArgosTranslator().translate("Guten Tag", "de", "ru")
+
+
+class TestArgosNoise:
+    """Stanza (argos' sentence splitter) warns about its own defaults on every
+    call. Argos also resets the logger level when it builds the pipeline, so
+    the fix has to survive that."""
+
+    def capture(self, monkeypatch):
+        import logging
+
+        from soundvibes.translation import quiet_argos_dependencies
+
+        logger = logging.getLogger("stanza")
+        records = []
+        handler = logging.Handler()
+        handler.emit = records.append
+        monkeypatch.setattr(logger, "handlers", [handler])
+        monkeypatch.setattr(logger, "filters", [])
+        monkeypatch.setattr(logger, "propagate", False)
+        quiet_argos_dependencies()
+        logger.setLevel(logging.WARNING)  # what argos does afterwards
+        return logger, records
+
+    def test_the_defaults_notice_is_dropped_even_after_argos_resets_the_level(self, monkeypatch):
+        logger, records = self.capture(monkeypatch)
+        logger.warning("Language en package default expects mwt, which has been added")
+        assert records == []
+
+    def test_other_warnings_still_get_through(self, monkeypatch):
+        logger, records = self.capture(monkeypatch)
+        logger.warning("model file is missing")
+        assert [r.getMessage() for r in records] == ["model file is missing"]
+
+    def test_the_filter_is_installed_once(self, monkeypatch):
+        logger, _ = self.capture(monkeypatch)
+        from soundvibes.translation import quiet_argos_dependencies
+
+        quiet_argos_dependencies()
+        assert len(logger.filters) == 1

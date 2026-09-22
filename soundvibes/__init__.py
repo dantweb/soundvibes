@@ -62,7 +62,7 @@ from .translation import (
     normalise_language,
     register_translator,
 )
-from .writer import CompositeWriter, TranscriptWriter, TranslationWriter
+from .writer import BackgroundWriter, CompositeWriter, TranscriptWriter, TranslationWriter
 
 __all__ = [
     "AudioPreprocessor",
@@ -91,6 +91,7 @@ __all__ = [
     "TranscriptWriter",
     "TranslationWriter",
     "CompositeWriter",
+    "BackgroundWriter",
     "Settings",
     "platform_for",
     "ArgosTranslator",
