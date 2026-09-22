@@ -10,10 +10,10 @@ Run it directly to re-check or top up an existing install:
 
     ./.venv/bin/python offline_setup.py
 """
+
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from soundvibes.config import CONFIG
 from soundvibes.offline import required_pairs, resolve_packages
@@ -30,9 +30,11 @@ def fetch_whisper_model() -> bool:
     try:
         from faster_whisper import WhisperModel
 
-        WhisperModel(model_size,
-                     device=CONFIG.transcription.device,
-                     compute_type=CONFIG.transcription.compute_type)
+        WhisperModel(
+            model_size,
+            device=CONFIG.transcription.device,
+            compute_type=CONFIG.transcription.compute_type,
+        )
     except Exception as error:
         report(f"FAILED: {error}", indent=1)
         return False
@@ -66,8 +68,7 @@ def fetch_argos_packages(sources: list[str], targets: list[str]) -> tuple[int, i
 
     needed = required_pairs(sources, targets)
     to_install, unreachable = resolve_packages(available, sources, targets)
-    report(f"{len(needed)} pair(s) needed, {len(to_install)} package(s) cover them",
-           indent=1)
+    report(f"{len(needed)} pair(s) needed, {len(to_install)} package(s) cover them", indent=1)
 
     installed = {(p.from_code, p.to_code) for p in package_api.get_installed_packages()}
     catalogue = {(p.from_code, p.to_code): p for p in package_api.get_available_packages()}
@@ -89,8 +90,9 @@ def fetch_argos_packages(sources: list[str], targets: list[str]) -> tuple[int, i
         succeeded += 1
 
     for source, target in unreachable:
-        report(f"{source}->{target}: NO ROUTE - argos has no package and no "
-               f"English pivot", indent=1)
+        report(
+            f"{source}->{target}: NO ROUTE - argos has no package and no English pivot", indent=1
+        )
 
     return succeeded, failed
 
@@ -110,8 +112,7 @@ def verify_offline_backend(sources: list[str], targets: list[str]) -> bool:
     source, target = pairs[0]
     report(f"verifying offline translation {source}->{target}...")
     try:
-        translated = ArgosTranslator().translate("Hello, this is a test.",
-                                                 source, target)
+        translated = ArgosTranslator().translate("Hello, this is a test.", source, target)
     except TranslationError as error:
         report(f"FAILED: {error}", indent=1)
         return False
@@ -123,8 +124,10 @@ def main() -> int:
     sources = list(CONFIG.transcription.languages)
     targets = list(CONFIG.translation.targets) or sources
     report("Preparing soundvibes for offline use")
-    report(f"spoken: {', '.join(sources)}   translating into: {', '.join(targets)}   "
-           f"backend: {CONFIG.translation.backend}")
+    report(
+        f"spoken: {', '.join(sources)}   translating into: {', '.join(targets)}   "
+        f"backend: {CONFIG.translation.backend}"
+    )
     report("")
 
     model_ok = fetch_whisper_model()
@@ -141,8 +144,7 @@ def main() -> int:
         report("Transcription is ready offline; translation is not.")
         report("Install it with: pip install -r requirements-translate.txt")
         return 1
-    report(f"Incomplete: model_ok={model_ok}, packages_installed={succeeded}, "
-           f"failures={failed}")
+    report(f"Incomplete: model_ok={model_ok}, packages_installed={succeeded}, failures={failed}")
     return 1
 
 

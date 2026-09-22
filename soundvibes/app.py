@@ -3,17 +3,18 @@
 Every collaborator is injectable, which is what lets the whole program be
 exercised in tests without a microphone or a model.
 """
+
 from __future__ import annotations
 
 import queue
 import signal
 import sys
 import threading
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from .capture import AudioSource
 from .constants import SOURCE_MICROPHONE, SOURCE_SYSTEM
-from .devices import AudioBackend, DeviceRegistry, DeviceResolutionError, SoundDeviceBackend
+from .devices import AudioBackend, DeviceRegistry, SoundDeviceBackend
 from .endpointing import SpeechEndpointer
 from .models import Utterance
 from .pipeline import TranscriptionPipeline
@@ -25,8 +26,14 @@ from .writer import CompositeWriter, TranscriptWriter, TranslationWriter
 
 
 class Application:
-    def __init__(self, settings: Settings, backend: Optional[AudioBackend] = None,
-                 platform: Optional[Platform] = None, engine=None, announce=print) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        backend: AudioBackend | None = None,
+        platform: Platform | None = None,
+        engine=None,
+        announce=print,
+    ) -> None:
         self._settings = settings
         self._backend = backend or SoundDeviceBackend()
         self._platform = platform or platform_for()
@@ -37,11 +44,12 @@ class Application:
 
     def run(self) -> int:
         settings = self._settings
-        utterances: "queue.Queue[Utterance]" = queue.Queue()
+        utterances: queue.Queue[Utterance] = queue.Queue()
         sources = self.build_sources(utterances)
 
         service = TranscriptionService(
-            engine=self._engine or WhisperEngine(
+            engine=self._engine
+            or WhisperEngine(
                 model_size=settings.transcription.model_size,
                 device=settings.transcription.device,
                 compute_type=settings.transcription.compute_type,
@@ -69,8 +77,10 @@ class Application:
             pipeline.drain(utterances)
             writer.close()
 
-        self._announce(f"\nWrote {pipeline.lines_written} transcript line(s) to "
-                       f"{settings.output.path.resolve()}")
+        self._announce(
+            f"\nWrote {pipeline.lines_written} transcript line(s) to "
+            f"{settings.output.path.resolve()}"
+        )
         return 0
 
     def _build_writer(self):
@@ -101,7 +111,7 @@ class Application:
         )
         return CompositeWriter(transcript, translations)
 
-    def build_sources(self, utterances: "queue.Queue[Utterance]") -> list[AudioSource]:
+    def build_sources(self, utterances: queue.Queue[Utterance]) -> list[AudioSource]:
         capture = self._settings.capture
         sources: list[AudioSource] = []
 
@@ -124,8 +134,9 @@ class Application:
 
     # ── internals ────────────────────────────────────────────────────────
 
-    def _source(self, label: str, index: Optional[int],
-                utterances: "queue.Queue[Utterance]") -> AudioSource:
+    def _source(
+        self, label: str, index: int | None, utterances: queue.Queue[Utterance]
+    ) -> AudioSource:
         endpointer_settings = self._settings.endpointer
         return AudioSource(
             label=label,
@@ -159,6 +170,7 @@ class Application:
         captured = ", ".join(f"{source.label}={source.device_name}" for source in sources)
         languages = "/".join(self._settings.transcription.languages)
         self._announce(f"Listening on {captured}")
-        self._announce(f"Languages: {languages}   "
-                       f"Transcript: {self._settings.output.path.resolve()}")
+        self._announce(
+            f"Languages: {languages}   Transcript: {self._settings.output.path.resolve()}"
+        )
         self._announce("Press Ctrl-C to stop.\n")

@@ -1,5 +1,4 @@
 """Which language packages an offline install actually needs."""
-import pytest
 
 from soundvibes.offline import required_pairs, resolve_packages
 
@@ -30,7 +29,8 @@ class TestRequiredPairs:
 class TestResolvePackages:
     def test_a_direct_package_is_chosen_when_available(self):
         to_install, unreachable = resolve_packages(
-            available=[("de", "fr")], sources=["de"], targets=["fr"])
+            available=[("de", "fr")], sources=["de"], targets=["fr"]
+        )
 
         assert to_install == [("de", "fr")]
         assert unreachable == []
@@ -38,14 +38,16 @@ class TestResolvePackages:
     def test_pivot_legs_are_chosen_when_there_is_no_direct_package(self):
         """Argos routes through English, so install the two legs instead."""
         to_install, unreachable = resolve_packages(
-            available=[("de", "en"), ("en", "fr")], sources=["de"], targets=["fr"])
+            available=[("de", "en"), ("en", "fr")], sources=["de"], targets=["fr"]
+        )
 
         assert to_install == [("de", "en"), ("en", "fr")]
         assert unreachable == []
 
     def test_a_pair_with_neither_route_is_reported_unreachable(self):
         to_install, unreachable = resolve_packages(
-            available=[("de", "en")], sources=["de"], targets=["fr"])
+            available=[("de", "en")], sources=["de"], targets=["fr"]
+        )
 
         assert to_install == []
         assert unreachable == [("de", "fr")]
@@ -53,25 +55,27 @@ class TestResolvePackages:
     def test_shared_pivot_legs_are_installed_once(self):
         to_install, _ = resolve_packages(
             available=[("de", "en"), ("ru", "en"), ("en", "fr")],
-            sources=["de", "ru"], targets=["fr"])
+            sources=["de", "ru"],
+            targets=["fr"],
+        )
 
         assert to_install.count(("en", "fr")) == 1
 
     def test_a_pair_needing_no_pivot_leg_from_english_is_direct(self):
         to_install, unreachable = resolve_packages(
-            available=[("en", "fr")], sources=["en"], targets=["fr"])
+            available=[("en", "fr")], sources=["en"], targets=["fr"]
+        )
 
         assert to_install == [("en", "fr")]
 
     def test_the_pivot_language_is_configurable(self):
         to_install, unreachable = resolve_packages(
-            available=[("de", "es"), ("es", "fr")], sources=["de"], targets=["fr"],
-            pivot="es")
+            available=[("de", "es"), ("es", "fr")], sources=["de"], targets=["fr"], pivot="es"
+        )
 
         assert to_install == [("de", "es"), ("es", "fr")]
 
     def test_nothing_needed_when_source_equals_target(self):
-        to_install, unreachable = resolve_packages(
-            available=[], sources=["fr"], targets=["fr"])
+        to_install, unreachable = resolve_packages(available=[], sources=["fr"], targets=["fr"])
 
         assert to_install == [] and unreachable == []

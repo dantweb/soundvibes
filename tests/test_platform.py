@@ -1,6 +1,6 @@
 """Platform-specific guidance. macOS and Linux capture system audio differently."""
-from soundvibes.platforms import (LinuxPlatform, MacOSPlatform, GenericPlatform,
-                                  platform_for)
+
+from soundvibes.platforms import GenericPlatform, LinuxPlatform, MacOSPlatform, platform_for
 
 
 class TestPlatformSelection:

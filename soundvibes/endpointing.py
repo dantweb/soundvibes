@@ -3,10 +3,10 @@
 Keeps a running estimate of the noise floor so it works in a quiet room and on
 a noisy line without the user tuning a threshold.
 """
+
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional
 
 import numpy as np
 
@@ -49,9 +49,9 @@ class SpeechEndpointer:
         self._trailing_silence = 0
         self._leading_speech = 0
         self._voiced_samples = 0
-        self._started_at: Optional[dt.datetime] = None
+        self._started_at: dt.datetime | None = None
 
-    def push(self, frame: np.ndarray) -> Optional[FinishedUtterance]:
+    def push(self, frame: np.ndarray) -> FinishedUtterance | None:
         """Feed exactly one frame; return a finished utterance when one ends."""
         loudness = self._loudness(frame)
         if not self._noise_initialised:
@@ -64,7 +64,7 @@ class SpeechEndpointer:
             return None
         return self._observe_while_speaking(frame, is_speech)
 
-    def flush(self) -> Optional[FinishedUtterance]:
+    def flush(self) -> FinishedUtterance | None:
         """Close an utterance still in progress (called on shutdown)."""
         return self._finish(discard_short=True) if self._speech else None
 
@@ -77,15 +77,15 @@ class SpeechEndpointer:
     def _threshold(self) -> float:
         return max(self._noise_floor * self._sensitivity, self._absolute_floor)
 
-    def _observe_while_idle(self, frame: np.ndarray, loudness: float,
-                            is_speech: bool) -> None:
+    def _observe_while_idle(self, frame: np.ndarray, loudness: float, is_speech: bool) -> None:
         """Adapt to the room and keep a pre-roll so no leading consonant is clipped."""
         if is_speech:
             self._leading_speech += 1
         else:
             self._leading_speech = 0
-            self._noise_floor = ((1 - self.NOISE_ADAPTION) * self._noise_floor
-                                 + self.NOISE_ADAPTION * loudness)
+            self._noise_floor = (
+                1 - self.NOISE_ADAPTION
+            ) * self._noise_floor + self.NOISE_ADAPTION * loudness
 
         self._preroll.append(frame)
         if len(self._preroll) > self._preroll_frames:
@@ -98,8 +98,9 @@ class SpeechEndpointer:
             self._voiced_samples = self._leading_speech * len(frame)
             self._started_at = dt.datetime.now()
 
-    def _observe_while_speaking(self, frame: np.ndarray,
-                                is_speech: bool) -> Optional[FinishedUtterance]:
+    def _observe_while_speaking(
+        self, frame: np.ndarray, is_speech: bool
+    ) -> FinishedUtterance | None:
         self._speech.append(frame)
         if is_speech:
             self._voiced_samples += len(frame)
@@ -113,7 +114,7 @@ class SpeechEndpointer:
         # A forced split keeps its audio; only a silence-ended blip is discarded.
         return self._finish(discard_short=ended_on_silence)
 
-    def _finish(self, discard_short: bool) -> Optional[FinishedUtterance]:
+    def _finish(self, discard_short: bool) -> FinishedUtterance | None:
         audio = np.concatenate(self._speech)
         started_at = self._started_at or dt.datetime.now()
         voiced_samples = self._voiced_samples

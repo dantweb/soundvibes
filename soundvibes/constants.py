@@ -1,4 +1,5 @@
 """Audio and source constants, read from config.yaml."""
+
 from .config import CONFIG
 
 SAMPLE_RATE = CONFIG.audio.sample_rate

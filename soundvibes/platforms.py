@@ -7,10 +7,11 @@ self-test. Everything else in soundvibes is portable.
 Adding an OS means adding a class here and one line in `platform_for` — no
 existing platform is touched.
 """
+
 from __future__ import annotations
 
 import sys
-from typing import Protocol, Sequence
+from typing import Protocol
 
 
 class Platform(Protocol):

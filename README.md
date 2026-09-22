@@ -1,5 +1,7 @@
 # soundvibes
 
+[![CI](https://github.com/dantweb/soundvibes/actions/workflows/ci.yml/badge.svg)](https://github.com/dantweb/soundvibes/actions/workflows/ci.yml)
+
 Live speech-to-text for **both** sides of a conversation: your microphone (`MIC`)
 and whatever your computer is playing (`SYS`). Every utterance is transcribed as
 it happens and appended to a text file. Language is auto-detected per utterance
@@ -32,6 +34,8 @@ Everything is a make target:
 | `make status` | is it running, and what has it written |
 | `make logs` | follow the background transcript live |
 | `make test` | fast unit suite — no model, no microphone |
+| `make lint` | style guards: ruff lint + formatting check, exactly as CI runs them |
+| `make format` | reformat and auto-fix what ruff can |
 | `make selftest` | end-to-end check against the real model |
 
 > **`make start -d` does not work, and cannot.** GNU make claims `-d` as its own
@@ -363,12 +367,14 @@ already works:
 ```python
 from soundvibes.formatters import register_formatter
 
+
 class CsvFormatter:
     def format(self, line):
         return f"{line.started_at:%H:%M:%S},{line.source},{line.language},{line.text}"
 
     def header(self, moment):
         return "time,source,language,text"
+
 
 register_formatter("csv", CsvFormatter)
 ```
@@ -378,12 +384,22 @@ register_formatter("csv", CsvFormatter)
 ## Tests
 
 ```bash
-make test                                  # 185 tests, ~0.1s
+make test                                  # 214 tests, ~0.2s
+make lint                                  # ruff check + ruff format --check
 ```
 
 The unit suite needs **no model, no microphone, no ffmpeg, no network** — every external
 dependency sits behind a seam with a test double. That is the point of the
 structure above.
+
+Style is guarded by [ruff](https://docs.astral.sh/ruff/): pycodestyle, pyflakes,
+import order, pyupgrade and bugbear rules plus the ruff formatter, configured in
+`pyproject.toml`. `make format` fixes most findings automatically.
+
+**CI** (`.github/workflows/ci.yml`) runs on every push to every branch and on
+every pull request: the style job on Ubuntu, and the unit suite on Ubuntu with
+Python 3.10, 3.11 and 3.12 and on macOS with Python 3.12. A red check means
+either `make lint` or `make test` fails locally too.
 
 ```bash
 make selftest                              # end-to-end, needs the model

@@ -9,6 +9,7 @@ Resolution order:
     2. ./config.yaml in the working directory
     3. the copy that ships alongside the package
 """
+
 from __future__ import annotations
 
 import os
@@ -41,9 +42,7 @@ class Section:
             value = self._values[name]
         except KeyError:
             location = f"{self._path}.{name}" if self._path else name
-            raise ConfigError(
-                f"missing key {location!r} in config.yaml"
-            ) from None
+            raise ConfigError(f"missing key {location!r} in config.yaml") from None
         if isinstance(value, dict):
             return Section(value, f"{self._path}.{name}" if self._path else name)
         return value
@@ -69,8 +68,7 @@ def find_config_file() -> Path:
         if candidate.is_file():
             return candidate
     raise ConfigError(
-        "config.yaml not found. Looked in: "
-        + ", ".join(str(path) for path in SEARCH_PATHS)
+        "config.yaml not found. Looked in: " + ", ".join(str(path) for path in SEARCH_PATHS)
     )
 
 

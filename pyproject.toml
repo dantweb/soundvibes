@@ -1,0 +1,29 @@
+# Tooling configuration only. Installation still goes through setup.sh /
+# requirements*.txt; this file pins how the style guards and tests run so
+# `make lint`, `make test` and CI agree byte for byte.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "transcripts", "var"]
+
+[tool.ruff.lint]
+# E/W  pycodestyle      F  pyflakes       I  import order
+# UP   pyupgrade        B  bugbear (likely bugs, not taste)
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length is the formatter's job
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "B017"]  # assert False / bare pytest.raises are fine in tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["soundvibes"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,4 +1,5 @@
 """Argument parsing produces settings objects; no side effects at parse time."""
+
 from pathlib import Path
 
 import pytest
@@ -55,10 +56,22 @@ class TestOverrides:
             build_settings(parse_args(["--no-mic", "--no-system"]))
 
     def test_tuning_knobs_are_carried_through(self):
-        settings = build_settings(parse_args([
-            "--silence", "1.2", "--sensitivity", "2.0", "--model", "medium",
-            "--beam-size", "3", "--split-by-language", "--quiet",
-        ]))
+        settings = build_settings(
+            parse_args(
+                [
+                    "--silence",
+                    "1.2",
+                    "--sensitivity",
+                    "2.0",
+                    "--model",
+                    "medium",
+                    "--beam-size",
+                    "3",
+                    "--split-by-language",
+                    "--quiet",
+                ]
+            )
+        )
 
         assert settings.endpointer.silence_seconds == 1.2
         assert settings.endpointer.sensitivity == 2.0
@@ -68,8 +81,9 @@ class TestOverrides:
         assert settings.output.quiet is True
 
     def test_device_selectors_are_preserved_verbatim(self):
-        settings = build_settings(parse_args(["--input-device", "2",
-                                              "--system-device", "BlackHole"]))
+        settings = build_settings(
+            parse_args(["--input-device", "2", "--system-device", "BlackHole"])
+        )
         assert settings.capture.input_device == "2"
         assert settings.capture.system_device == "BlackHole"
 
@@ -93,6 +107,7 @@ class TestTranslation:
 
     def test_translation_is_off_when_no_targets_are_configured(self):
         from soundvibes.settings import TranslationSettings
+
         assert TranslationSettings(targets=()).enabled is False
 
     def test_targets_are_normalised(self):

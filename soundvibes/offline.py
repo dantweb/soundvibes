@@ -3,9 +3,10 @@
 Kept out of the install script so the reasoning is testable: getting this wrong
 is silent until someone is on a plane with no network.
 """
+
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 
 #: Argos routes most pairs through English when no direct package exists.
 DEFAULT_PIVOT = "en"
@@ -33,15 +34,15 @@ def required_pairs(sources: Sequence[str], targets: Sequence[str]) -> list[Pair]
     """
     sources = _unique(sources)
     targets = _unique(targets) or sources
-    return _unique((source, target)
-                   for source in sources
-                   for target in targets
-                   if source != target)
+    return _unique((source, target) for source in sources for target in targets if source != target)
 
 
-def resolve_packages(available: Sequence[Pair], sources: Sequence[str],
-                     targets: Sequence[str],
-                     pivot: str = DEFAULT_PIVOT) -> tuple[list[Pair], list[Pair]]:
+def resolve_packages(
+    available: Sequence[Pair],
+    sources: Sequence[str],
+    targets: Sequence[str],
+    pivot: str = DEFAULT_PIVOT,
+) -> tuple[list[Pair], list[Pair]]:
     """Split the needed pairs into packages to install and pairs we cannot serve.
 
     Returns (to_install, unreachable). A pair with no direct package becomes its

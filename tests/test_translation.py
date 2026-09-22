@@ -1,10 +1,16 @@
 """Translation is a seam, like the transcription engine — backends are adapters."""
+
 import pytest
 
-from soundvibes.translation import (CachingTranslator, IdentityTranslator,
-                                    TranslationError, available_translators,
-                                    create_translator, normalise_language,
-                                    register_translator)
+from soundvibes.translation import (
+    CachingTranslator,
+    IdentityTranslator,
+    TranslationError,
+    available_translators,
+    create_translator,
+    normalise_language,
+    register_translator,
+)
 
 
 class RecordingTranslator:
@@ -24,9 +30,16 @@ class TestIdentityTranslator:
 
 
 class TestNormaliseLanguage:
-    @pytest.mark.parametrize("given,expected", [
-        ("RU", "ru"), ("ru", "ru"), (" Fr ", "fr"), ("en-US", "en"), ("PT_BR", "pt"),
-    ])
+    @pytest.mark.parametrize(
+        "given,expected",
+        [
+            ("RU", "ru"),
+            ("ru", "ru"),
+            (" Fr ", "fr"),
+            ("en-US", "en"),
+            ("PT_BR", "pt"),
+        ],
+    )
     def test_codes_are_reduced_to_a_bare_lowercase_code(self, given, expected):
         assert normalise_language(given) == expected
 
@@ -148,16 +161,16 @@ class TestArgosPackageHandling:
         from soundvibes import translation
 
         translate_api = FakeTranslateApi()
-        monkeypatch.setattr(translation, "_import_argos",
-                            lambda: (package_api, translate_api))
+        monkeypatch.setattr(translation, "_import_argos", lambda: (package_api, translate_api))
         return translate_api
 
     def test_a_missing_direct_package_still_translates(self, monkeypatch):
         """Argos routes de->ru through English. Refusing here broke real pairs."""
         from soundvibes.translation import ArgosTranslator
 
-        package_api = FakePackageApi(available_pairs=[("en", "ru")],
-                                     installed_pairs=[("en", "ru"), ("de", "en")])
+        package_api = FakePackageApi(
+            available_pairs=[("en", "ru")], installed_pairs=[("en", "ru"), ("de", "en")]
+        )
         translate_api = self.install_fakes(monkeypatch, package_api)
 
         result = ArgosTranslator().translate("Guten Tag", "de", "ru")
@@ -178,8 +191,7 @@ class TestArgosPackageHandling:
     def test_an_already_installed_package_is_not_reinstalled(self, monkeypatch):
         from soundvibes.translation import ArgosTranslator
 
-        package_api = FakePackageApi(available_pairs=[("de", "ru")],
-                                     installed_pairs=[("de", "ru")])
+        package_api = FakePackageApi(available_pairs=[("de", "ru")], installed_pairs=[("de", "ru")])
         self.install_fakes(monkeypatch, package_api)
 
         ArgosTranslator().translate("Guten Tag", "de", "ru")
@@ -194,8 +206,7 @@ class TestArgosPackageHandling:
             def translate(self, text, source, target):
                 raise RuntimeError("model missing")
 
-        monkeypatch.setattr(translation, "_import_argos",
-                            lambda: (FakePackageApi(), Exploding()))
+        monkeypatch.setattr(translation, "_import_argos", lambda: (FakePackageApi(), Exploding()))
 
         with pytest.raises(TranslationError, match="de->ru"):
             ArgosTranslator().translate("Guten Tag", "de", "ru")

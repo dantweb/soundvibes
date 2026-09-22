@@ -3,16 +3,18 @@
 The engine is faked at the transport seam — the boundary the real WhisperEngine
 adapts — so these assert our logic, not faster-whisper's.
 """
-import datetime as dt
 
-import numpy as np
 import pytest
-
 from conftest import FakeEngine, make_result
+
 from soundvibes.config import CONFIG
-from soundvibes.models import Utterance
-from soundvibes.transcription import (EngineResult, HallucinationFilter, Segment,
-                                      TextAssembler, TranscriptionService)
+from soundvibes.transcription import (
+    EngineResult,
+    HallucinationFilter,
+    Segment,
+    TextAssembler,
+    TranscriptionService,
+)
 
 
 class TestHallucinationFilter:
@@ -22,11 +24,14 @@ class TestHallucinationFilter:
     def test_every_configured_phrase_is_rejected(self, text):
         assert HallucinationFilter().is_hallucination(text)
 
-    @pytest.mark.parametrize("text", [
-        "Thank you for sending the contract over.",
-        "I'll take a look tonight.",
-        "Guten Tag, dies ist ein deutscher Testsatz.",
-    ])
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Thank you for sending the contract over.",
+            "I'll take a look tonight.",
+            "Guten Tag, dies ist ein deutscher Testsatz.",
+        ],
+    )
     def test_real_speech_survives(self, text):
         assert not HallucinationFilter().is_hallucination(text)
 
@@ -52,9 +57,11 @@ MIN_AVERAGE_LOGPROB = -1.0
 
 def assembler():
     """An assembler whose blocklist and thresholds this test owns."""
-    return TextAssembler(HallucinationFilter(extra_phrases={NOISE}),
-                         max_no_speech_probability=MAX_NO_SPEECH,
-                         min_average_logprob=MIN_AVERAGE_LOGPROB)
+    return TextAssembler(
+        HallucinationFilter(extra_phrases={NOISE}),
+        max_no_speech_probability=MAX_NO_SPEECH,
+        min_average_logprob=MIN_AVERAGE_LOGPROB,
+    )
 
 
 class TestTextAssembler:
@@ -86,8 +93,7 @@ class TestAssemblerDefaults:
 
     def test_thresholds_are_taken_from_the_config_file(self):
         default = TextAssembler()
-        assert default._max_no_speech_probability == \
-            CONFIG.transcription.max_no_speech_probability
+        assert default._max_no_speech_probability == CONFIG.transcription.max_no_speech_probability
         assert default._min_average_logprob == CONFIG.transcription.min_average_logprob
 
 
@@ -123,11 +129,17 @@ class TestTranscriptionService:
 
     def test_detection_outside_the_allowed_set_is_retried_with_the_best_allowed(self, utterance):
         """Whisper knows ~100 languages; we only want ours."""
-        engine = FakeEngine([
-            make_result("bonjour", "fr", 0.55,
-                        all_probabilities=[("fr", 0.55), ("de", 0.31), ("en", 0.10)]),
-            make_result("guten tag", "de", 0.31),
-        ])
+        engine = FakeEngine(
+            [
+                make_result(
+                    "bonjour",
+                    "fr",
+                    0.55,
+                    all_probabilities=[("fr", 0.55), ("de", 0.31), ("en", 0.10)],
+                ),
+                make_result("guten tag", "de", 0.31),
+            ]
+        )
 
         line = self.service(engine).transcribe(utterance)
 
@@ -142,9 +154,11 @@ class TestTranscriptionService:
         assert len(engine.calls) == 1
 
     def test_no_allowed_language_keeps_the_original_result(self, utterance):
-        engine = FakeEngine([
-            make_result("bonjour", "fr", 0.9, all_probabilities=[("fr", 0.9), ("it", 0.1)]),
-        ])
+        engine = FakeEngine(
+            [
+                make_result("bonjour", "fr", 0.9, all_probabilities=[("fr", 0.9), ("it", 0.1)]),
+            ]
+        )
 
         line = self.service(engine).transcribe(utterance)
 

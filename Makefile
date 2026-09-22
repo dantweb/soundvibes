@@ -14,6 +14,8 @@
 #   make logs               follow the background transcript live
 #
 #   make test               fast unit suite (no model, no microphone)
+#   make lint               style guards: ruff check + ruff format --check (as CI runs them)
+#   make format             reformat and auto-fix what ruff can
 #   make selftest           end-to-end check against the real model
 #
 # Note on `make start -d`: GNU make claims `-d` as its own debug flag wherever
@@ -33,7 +35,7 @@ STOP_TIMEOUT := 15
 
 # Commands, as opposed to language arguments.
 COMMANDS := help start start-d stop _stop-pid restart status logs install \
-            offline test selftest clean venv translate-ready
+            offline test lint format selftest clean venv translate-ready
 
 # Anything else on the command line is a language: `make start fr de`
 COMMA := ,
@@ -165,6 +167,14 @@ offline: venv
 
 test: venv
 	@$(PYTHON) -m pytest tests/ -q
+
+lint: venv
+	@$(PYTHON) -m ruff check .
+	@$(PYTHON) -m ruff format --check .
+
+format: venv
+	@$(PYTHON) -m ruff check --fix .
+	@$(PYTHON) -m ruff format .
 
 selftest: venv
 	@$(PYTHON) selftest.py

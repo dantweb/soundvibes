@@ -1,4 +1,5 @@
 """config.yaml is the single source of every tunable value."""
+
 import pytest
 
 from soundvibes.config import CONFIG, ConfigError, Section, load_config
@@ -59,20 +60,38 @@ class TestCustomFiles:
 class TestEveryTunableIsPresent:
     """If a section disappears from config.yaml, the package cannot import."""
 
-    @pytest.mark.parametrize("section", [
-        "audio", "sources", "endpointer", "transcription", "translation",
-        "output", "pipeline", "devices",
-    ])
+    @pytest.mark.parametrize(
+        "section",
+        [
+            "audio",
+            "sources",
+            "endpointer",
+            "transcription",
+            "translation",
+            "output",
+            "pipeline",
+            "devices",
+        ],
+    )
     def test_section_exists(self, section):
         assert isinstance(getattr(CONFIG, section), Section)
 
-    @pytest.mark.parametrize("path", [
-        ("audio", "sample_rate"), ("audio", "frame_ms"), ("audio", "block_poll_seconds"),
-        ("endpointer", "sensitivity"), ("endpointer", "onset_frames"),
-        ("transcription", "hallucinations"), ("transcription", "beam_size"),
-        ("translation", "cache_entries"), ("translation", "file_prefix"),
-        ("pipeline", "poll_seconds"), ("output", "format"),
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            ("audio", "sample_rate"),
+            ("audio", "frame_ms"),
+            ("audio", "block_poll_seconds"),
+            ("endpointer", "sensitivity"),
+            ("endpointer", "onset_frames"),
+            ("transcription", "hallucinations"),
+            ("transcription", "beam_size"),
+            ("translation", "cache_entries"),
+            ("translation", "file_prefix"),
+            ("pipeline", "poll_seconds"),
+            ("output", "format"),
+        ],
+    )
     def test_key_exists(self, path):
         section, key = path
         assert getattr(getattr(CONFIG, section), key) is not None
