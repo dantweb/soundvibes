@@ -84,6 +84,8 @@ class TestEveryTunableIsPresent:
             ("audio", "block_poll_seconds"),
             ("endpointer", "sensitivity"),
             ("endpointer", "onset_frames"),
+            ("endpointer", "eager_after_seconds"),
+            ("endpointer", "eager_silence_seconds"),
             ("transcription", "hallucinations"),
             ("transcription", "beam_size"),
             ("translation", "cache_entries"),
@@ -118,3 +120,57 @@ class TestValuesReachTheCode:
         from soundvibes.devices import LOOPBACK_HINTS
 
         assert list(LOOPBACK_HINTS) == list(CONFIG.devices.loopback_hints)
+
+
+class TestDistTemplate:
+    """config.yaml is the active configuration; config.yaml.dist is the full
+    template next to it, and the loader falls back to it as a last resort."""
+
+    def test_the_dist_file_is_found_when_no_config_yaml_exists(self, tmp_path, monkeypatch):
+        from soundvibes import config
+
+        dist = tmp_path / "config.yaml.dist"
+        dist.write_text("audio:\n  sample_rate: 8000\n")
+        monkeypatch.delenv("SOUNDVIBES_CONFIG", raising=False)
+        monkeypatch.setattr(config, "SEARCH_PATHS", (tmp_path / "config.yaml", dist))
+
+        assert config.find_config_file() == dist
+
+    def test_config_yaml_wins_over_the_dist_file(self, tmp_path, monkeypatch):
+        from soundvibes import config
+
+        own = tmp_path / "config.yaml"
+        dist = tmp_path / "config.yaml.dist"
+        own.write_text("audio: {}\n")
+        dist.write_text("audio: {}\n")
+        monkeypatch.delenv("SOUNDVIBES_CONFIG", raising=False)
+        monkeypatch.setattr(config, "SEARCH_PATHS", (own, dist))
+
+        assert config.find_config_file() == own
+
+    def test_the_dist_template_has_every_key_the_code_reads(self):
+        """A key added to config.yaml but not to the template would break
+        anyone who starts from the template. It must be a superset."""
+        from pathlib import Path
+
+        import yaml
+
+        root = Path(__file__).resolve().parent.parent
+        template = yaml.safe_load((root / "config.yaml.dist").read_text())
+
+        def paths(mapping, prefix=""):
+            for key, value in mapping.items():
+                yield f"{prefix}{key}"
+                if isinstance(value, dict):
+                    yield from paths(value, f"{prefix}{key}.")
+
+        template_keys = set(paths(template))
+        own = root / "config.yaml"
+        if own.exists():
+            assert set(paths(yaml.safe_load(own.read_text()))) <= template_keys
+        for section, key in [
+            ("endpointer", "eager_after_seconds"),
+            ("endpointer", "eager_silence_seconds"),
+            ("translation", "targets"),
+        ]:
+            assert f"{section}.{key}" in template_keys

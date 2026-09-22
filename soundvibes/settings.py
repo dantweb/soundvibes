@@ -17,6 +17,8 @@ class EndpointerSettings:
     silence_seconds: float = CONFIG.endpointer.silence_seconds
     min_speech_seconds: float = CONFIG.endpointer.min_speech_seconds
     max_speech_seconds: float = CONFIG.endpointer.max_speech_seconds
+    eager_after_seconds: float = CONFIG.endpointer.eager_after_seconds
+    eager_silence_seconds: float = CONFIG.endpointer.eager_silence_seconds
     preroll_seconds: float = CONFIG.endpointer.preroll_seconds
     sensitivity: float = CONFIG.endpointer.sensitivity
     absolute_floor: float = CONFIG.endpointer.absolute_floor

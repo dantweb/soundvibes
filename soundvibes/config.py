@@ -8,6 +8,8 @@ Resolution order:
     1. $SOUNDVIBES_CONFIG
     2. ./config.yaml in the working directory
     3. the copy that ships alongside the package
+    4. config.yaml.dist - the full template, as a last resort if config.yaml
+       was deleted
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ SEARCH_PATHS = (
     Path.cwd() / "config.yaml",
     PACKAGE_ROOT.parent / "config.yaml",
     PACKAGE_ROOT / "config.yaml",
+    Path.cwd() / "config.yaml.dist",
+    PACKAGE_ROOT.parent / "config.yaml.dist",
 )
 
 

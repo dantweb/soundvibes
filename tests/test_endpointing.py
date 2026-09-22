@@ -110,3 +110,34 @@ def test_sensitivity_controls_the_threshold():
     sensitive = feed(make(sensitivity=1.5), quiet_speech)
 
     assert len(sensitive) >= len(insensitive)
+
+
+class TestEagerSplit:
+    """Continuous speech is cut at a breath-length pause once it is long enough,
+    instead of waiting for the full silence or the hard maximum."""
+
+    def signal(self, gap_seconds):
+        return np.concatenate(
+            [silence(0.5), tone(5.0), silence(gap_seconds), tone(2.0), silence(1.5)]
+        )
+
+    def test_a_short_pause_splits_long_speech(self):
+        endpointer = make(eager_after_seconds=4.0, eager_silence_seconds=0.25)
+        assert len(feed(endpointer, self.signal(gap_seconds=0.35))) == 2
+
+    def test_without_eager_splitting_the_same_pause_is_ignored(self):
+        endpointer = make(eager_after_seconds=1000.0, eager_silence_seconds=0.25)
+        assert len(feed(endpointer, self.signal(gap_seconds=0.35))) == 1
+
+    def test_a_short_pause_early_in_an_utterance_does_not_split(self):
+        # 1 s of speech, 0.35 s pause, more speech: still one utterance,
+        # because the eager rule only applies after eager_after_seconds.
+        endpointer = make(eager_after_seconds=4.0, eager_silence_seconds=0.25)
+        signal = np.concatenate([silence(0.5), tone(1.0), silence(0.35), tone(1.0), silence(1.5)])
+        assert len(feed(endpointer, signal)) == 1
+
+    def test_the_first_part_is_delivered_promptly(self):
+        """The split must happen at the pause, not at the end of the signal."""
+        endpointer = make(eager_after_seconds=4.0, eager_silence_seconds=0.25)
+        first_part = np.concatenate([silence(0.5), tone(5.0), silence(0.35)])
+        assert len(feed(endpointer, first_part)) == 1

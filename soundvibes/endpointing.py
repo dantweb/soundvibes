@@ -34,10 +34,18 @@ class SpeechEndpointer:
         preroll_seconds: float = _DEFAULTS.preroll_seconds,
         sensitivity: float = _DEFAULTS.sensitivity,
         absolute_floor: float = _DEFAULTS.absolute_floor,
+        eager_after_seconds: float = _DEFAULTS.eager_after_seconds,
+        eager_silence_seconds: float = _DEFAULTS.eager_silence_seconds,
     ) -> None:
         self._silence_frames = max(1, int(silence_seconds * 1000 / FRAME_MS))
         self._min_speech_samples = int(min_speech_seconds * SAMPLE_RATE)
         self._max_speech_samples = int(max_speech_seconds * SAMPLE_RATE)
+        # Continuous speech (a lecture, the news) has no 0.7 s pause for a long
+        # time. Rather than sitting on the audio until the hard limit, accept a
+        # breath-length pause once the utterance is already long enough to be
+        # worth transcribing on its own. That is what makes the output feel live.
+        self._eager_after_samples = int(eager_after_seconds * SAMPLE_RATE)
+        self._eager_silence_frames = max(1, int(eager_silence_seconds * 1000 / FRAME_MS))
         self._preroll_frames = max(1, int(preroll_seconds * 1000 / FRAME_MS))
         self._sensitivity = sensitivity
         self._absolute_floor = absolute_floor
@@ -107,7 +115,12 @@ class SpeechEndpointer:
         self._trailing_silence = 0 if is_speech else self._trailing_silence + 1
 
         collected = sum(len(chunk) for chunk in self._speech)
-        ended_on_silence = self._trailing_silence >= self._silence_frames
+        required_silence = (
+            self._eager_silence_frames
+            if collected >= self._eager_after_samples
+            else self._silence_frames
+        )
+        ended_on_silence = self._trailing_silence >= required_silence
         overlong = collected >= self._max_speech_samples
         if not (ended_on_silence or overlong):
             return None

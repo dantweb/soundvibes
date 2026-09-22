@@ -105,6 +105,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="force-split utterances longer than this",
     )
     parser.add_argument(
+        "--eager-after",
+        type=float,
+        default=CONFIG.endpointer.eager_after_seconds,
+        help="once an utterance is this long, a pause of --eager-silence ends it",
+    )
+    parser.add_argument(
+        "--eager-silence",
+        type=float,
+        default=CONFIG.endpointer.eager_silence_seconds,
+        help="the shorter pause that ends an utterance after --eager-after seconds",
+    )
+    parser.add_argument(
         "--sensitivity",
         type=float,
         default=CONFIG.endpointer.sensitivity,
@@ -138,6 +150,8 @@ def build_settings(arguments: argparse.Namespace) -> Settings:
             silence_seconds=arguments.silence,
             min_speech_seconds=arguments.min_speech,
             max_speech_seconds=arguments.max_speech,
+            eager_after_seconds=arguments.eager_after,
+            eager_silence_seconds=arguments.eager_silence,
             sensitivity=arguments.sensitivity,
         ),
         transcription=TranscriptionSettings(

@@ -30,6 +30,8 @@ class TestDefaults:
         assert endpointer.silence_seconds == CONFIG.endpointer.silence_seconds
         assert endpointer.min_speech_seconds == CONFIG.endpointer.min_speech_seconds
         assert endpointer.max_speech_seconds == CONFIG.endpointer.max_speech_seconds
+        assert endpointer.eager_after_seconds == CONFIG.endpointer.eager_after_seconds
+        assert endpointer.eager_silence_seconds == CONFIG.endpointer.eager_silence_seconds
         assert endpointer.sensitivity == CONFIG.endpointer.sensitivity
 
 
@@ -126,3 +128,12 @@ class TestTranslation:
     def test_unknown_backend_is_rejected_at_parse_time(self):
         with pytest.raises(SystemExit):
             parse_args(["--translator", "babelfish"])
+
+
+class TestEagerFlags:
+    def test_eager_split_can_be_tuned_from_the_command_line(self):
+        endpointer = build_settings(
+            parse_args(["--eager-after", "6", "--eager-silence", "0.4"])
+        ).endpointer
+        assert endpointer.eager_after_seconds == 6.0
+        assert endpointer.eager_silence_seconds == 0.4
