@@ -10,14 +10,41 @@ Parameters
 Licensor:             Daniil Tkachev
 Licensed Work:        soundvibes
                       The Licensed Work is (c) 2026 Daniil Tkachev.
-Additional Use Grant: You may use the Licensed Work for personal purposes and
-                      for internal business purposes without limitation. You
-                      may not provide the Licensed Work, or any derivative of
-                      it, to third parties as a hosted or managed service, or
-                      as part of a commercial product or service whose value
+Additional Use Grant: Personal Use. You may use the Licensed Work for personal
+                      purposes free of charge. Personal Use includes use by an
+                      individual on their own initiative, including at their
+                      place of work, provided the use does not fall under
+                      Corporate Use as defined below.
+
+                      Corporate Use. Use of the Licensed Work by or within an
+                      organization (a company, public body, non-profit
+                      organization, or any other legal entity) is "Corporate
+                      Use". Corporate Use includes, without limitation, any
+                      case in which an organization deploys, provisions,
+                      mandates, recommends, endorses, or otherwise promotes the
+                      Licensed Work for use by its employees, members,
+                      contractors, or other persons acting on its behalf. A
+                      recommendation of the Licensed Work by an organization is
+                      in every case considered Corporate Use, and every person
+                      who uses the Licensed Work following such a
+                      recommendation counts as a user of that organization.
+
+                      Corporate Use requires a commercial licence from the
+                      Licensor. The licence fee is 10 USD per user per month,
+                      payable by the organization to the Licensor yearly in
+                      advance, that is 120 USD per user per licence year, for
+                      each user who uses the Licensed Work within the
+                      organization or following its recommendation during that
+                      licence year. Corporate Use without a paid commercial
+                      licence is not permitted.
+
+                      Hosted and Embedded Use. Regardless of the above, you may
+                      not provide the Licensed Work, or any derivative of it,
+                      to third parties as a hosted or managed service, or as
+                      part of a commercial product or service whose value
                       derives substantially from the functionality of the
-                      Licensed Work, without a commercial licence from the
-                      Licensor.
+                      Licensed Work, without a separate commercial licence from
+                      the Licensor.
 Change Date:          2030-08-25
 Change License:       Apache License, Version 2.0
 
