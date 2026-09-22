@@ -25,8 +25,15 @@ from pathlib import Path
 
 import numpy as np
 
-from soundvibes import (FRAME_SAMPLES, SAMPLE_RATE, SpeechEndpointer, Transcriber,
-                        TranscriptWriter, Utterance, platform_for)
+from soundvibes import (
+    FRAME_SAMPLES,
+    SAMPLE_RATE,
+    SpeechEndpointer,
+    Transcriber,
+    TranscriptWriter,
+    Utterance,
+    platform_for,
+)
 
 CASES = [
     ("en", "The quick brown fox jumps over the lazy dog every morning."),
@@ -40,8 +47,19 @@ def synthesize(platform, language: str, phrase: str, destination: Path) -> Path:
     raw = destination.with_suffix(platform.synthesis_suffix)
     subprocess.run(platform.synthesis_command(phrase, str(raw), language), check=True)
     subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw),
-         "-ac", "1", "-ar", str(SAMPLE_RATE), str(destination)],
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(raw),
+            "-ac",
+            "1",
+            "-ar",
+            str(SAMPLE_RATE),
+            str(destination),
+        ],
         check=True,
     )
     return destination
@@ -56,15 +74,16 @@ def read_wav(path: Path) -> np.ndarray:
 
 def endpoint(audio: np.ndarray) -> list[np.ndarray]:
     """Run the audio through the real endpointer, padded with silence either side."""
-    endpointer = SpeechEndpointer(silence_seconds=0.7, min_speech_seconds=0.4,
-                                  max_speech_seconds=20.0)
+    endpointer = SpeechEndpointer(
+        silence_seconds=0.7, min_speech_seconds=0.4, max_speech_seconds=20.0
+    )
     padding = np.zeros(SAMPLE_RATE, dtype=np.float32)  # 1 s of digital silence
     padded = np.concatenate([padding, audio, padding])
 
     utterances = []
     usable = len(padded) - (len(padded) % FRAME_SAMPLES)
     for start in range(0, usable, FRAME_SAMPLES):
-        finished = endpointer.push(padded[start:start + FRAME_SAMPLES])
+        finished = endpointer.push(padded[start : start + FRAME_SAMPLES])
         if finished is not None:
             utterances.append(finished[0])
     trailing = endpointer.flush()
@@ -75,8 +94,7 @@ def endpoint(audio: np.ndarray) -> list[np.ndarray]:
 
 def missing_tool(platform) -> str | None:
     if shutil.which(platform.synthesis_binary) is None:
-        hint = ("brew install espeak-ng" if platform.name != "macos"
-                else "`say` ships with macOS")
+        hint = "brew install espeak-ng" if platform.name != "macos" else "`say` ships with macOS"
         return f"needs {platform.synthesis_binary} ({hint})"
     if shutil.which("ffmpeg") is None:
         return "needs ffmpeg"
@@ -92,8 +110,9 @@ def main() -> int:
 
     print(f"Platform: {platform.name} (TTS: {platform.synthesis_binary})")
     languages = [code for code, _ in CASES]
-    transcriber = Transcriber(model_size="small", languages=languages, device="cpu",
-                              compute_type="int8", beam_size=5)
+    transcriber = Transcriber(
+        model_size="small", languages=languages, device="cpu", compute_type="int8", beam_size=5
+    )
 
     failures = 0
     with tempfile.TemporaryDirectory() as workdir:
@@ -101,8 +120,7 @@ def main() -> int:
         writer = TranscriptWriter(work / "transcript.txt", "text", True, languages)
 
         for expected_language, phrase in CASES:
-            wav = synthesize(platform, expected_language, phrase,
-                             work / f"{expected_language}.wav")
+            wav = synthesize(platform, expected_language, phrase, work / f"{expected_language}.wav")
             chunks = endpoint(read_wav(wav))
 
             print(f"\n--- {expected_language} ---")

@@ -7,6 +7,7 @@ The implementation lives in the `soundvibes/` package. Running this file
 executes it as __main__, so the package name is free for the real import.
 Equivalent: `python -m soundvibes`.
 """
+
 import sys
 from pathlib import Path
 

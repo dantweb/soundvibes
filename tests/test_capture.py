@@ -1,6 +1,6 @@
 """Audio preprocessing and framing — pure, so no device is involved."""
+
 import numpy as np
-import pytest
 
 from soundvibes.capture import AudioPreprocessor, FrameSplitter
 from soundvibes.constants import FRAME_SAMPLES, SAMPLE_RATE
@@ -29,7 +29,7 @@ class TestFrameSplitter:
         frames = splitter.push(signal[:100]) + splitter.push(signal[100:])
         rebuilt = np.concatenate(frames) if frames else np.zeros(0, dtype=np.float32)
 
-        assert np.array_equal(rebuilt, signal[:len(rebuilt)])
+        assert np.array_equal(rebuilt, signal[: len(rebuilt)])
         assert len(rebuilt) == FRAME_SAMPLES * 2
 
     def test_short_push_yields_nothing_yet(self):

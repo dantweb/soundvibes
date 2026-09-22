@@ -1,8 +1,10 @@
 """Audio device discovery, behind a backend seam so it is testable without hardware."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Protocol, Sequence
+from typing import Any, Protocol
 
 from .config import CONFIG
 
@@ -22,7 +24,7 @@ def is_loopback_name(name: str) -> bool:
 
 @dataclass(frozen=True)
 class DeviceInfo:
-    index: Optional[int]
+    index: int | None
     name: str
     channels: int
     sample_rate: int
@@ -34,9 +36,9 @@ class AudioBackend(Protocol):
 
     def query_devices(self) -> Sequence[Mapping[str, Any]]: ...
 
-    def device_info(self, index: Optional[int]) -> Mapping[str, Any]: ...
+    def device_info(self, index: int | None) -> Mapping[str, Any]: ...
 
-    def default_input_index(self) -> Optional[int]: ...
+    def default_input_index(self) -> int | None: ...
 
     def open_input_stream(self, **kwargs: Any) -> Any: ...
 
@@ -53,10 +55,10 @@ class SoundDeviceBackend:
     def query_devices(self) -> Sequence[Mapping[str, Any]]:
         return self._sounddevice.query_devices()
 
-    def device_info(self, index: Optional[int]) -> Mapping[str, Any]:
+    def device_info(self, index: int | None) -> Mapping[str, Any]:
         return self._sounddevice.query_devices(index, "input")
 
-    def default_input_index(self) -> Optional[int]:
+    def default_input_index(self) -> int | None:
         default_input, _ = self._sounddevice.default.device
         return default_input
 
@@ -70,7 +72,7 @@ class DeviceRegistry:
     def __init__(self, backend: AudioBackend) -> None:
         self._backend = backend
 
-    def resolve(self, selector: Optional[str]) -> Optional[int]:
+    def resolve(self, selector: str | None) -> int | None:
         """Turn an index or a partial, case-insensitive name into an index.
 
         None means "let the audio library pick the default input".
@@ -84,8 +86,11 @@ class DeviceRegistry:
             return int(selector)
 
         wanted = selector.lower()
-        matches = [index for index, device in enumerate(self._backend.query_devices())
-                   if self._can_capture(device) and wanted in device["name"].lower()]
+        matches = [
+            index
+            for index, device in enumerate(self._backend.query_devices())
+            if self._can_capture(device) and wanted in device["name"].lower()
+        ]
 
         if not matches:
             raise DeviceResolutionError(
@@ -98,14 +103,14 @@ class DeviceRegistry:
             raise DeviceResolutionError(f"{selector!r} is ambiguous, matches: {listed}")
         return matches[0]
 
-    def find_loopback(self) -> Optional[int]:
+    def find_loopback(self) -> int | None:
         """First input-capable device that looks like a loopback, if any."""
         for index, device in enumerate(self._backend.query_devices()):
             if self._can_capture(device) and is_loopback_name(device["name"]):
                 return index
         return None
 
-    def describe(self, index: Optional[int]) -> DeviceInfo:
+    def describe(self, index: int | None) -> DeviceInfo:
         if index is None:
             index = self._backend.default_input_index()
         device = self._backend.device_info(index)

@@ -1,7 +1,8 @@
 """Device discovery against a fake backend — no sounddevice, no hardware."""
-import pytest
 
+import pytest
 from conftest import FakeAudioBackend
+
 from soundvibes.config import CONFIG
 from soundvibes.devices import DeviceRegistry, DeviceResolutionError, is_loopback_name
 
@@ -13,9 +14,14 @@ class TestLoopbackNaming:
     def test_every_configured_hint_is_recognised(self, hint):
         assert is_loopback_name(f"Some {hint.title()} Device")
 
-    @pytest.mark.parametrize("name", [
-        "MacBook Pro Microphone", "External Headphones", "USB Audio Device",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "MacBook Pro Microphone",
+            "External Headphones",
+            "USB Audio Device",
+        ],
+    )
     def test_ordinary_devices_are_not_loopback(self, name):
         assert not is_loopback_name(name)
 
@@ -49,10 +55,16 @@ class TestDeviceRegistry:
         assert DeviceRegistry(backend).find_loopback() == 2
 
     def test_absent_loopback_reports_none(self):
-        backend = FakeAudioBackend(devices=[
-            {"name": "MacBook Pro Microphone", "max_input_channels": 1,
-             "max_output_channels": 0, "default_samplerate": 48000},
-        ])
+        backend = FakeAudioBackend(
+            devices=[
+                {
+                    "name": "MacBook Pro Microphone",
+                    "max_input_channels": 1,
+                    "max_output_channels": 0,
+                    "default_samplerate": 48000,
+                },
+            ]
+        )
         assert DeviceRegistry(backend).find_loopback() is None
 
     def test_describe_reports_name_channels_and_rate(self, backend):
@@ -62,10 +74,16 @@ class TestDeviceRegistry:
         assert info.sample_rate == 48000
 
     def test_describe_caps_channels_at_stereo(self):
-        backend = FakeAudioBackend(devices=[
-            {"name": "Interface", "max_input_channels": 8,
-             "max_output_channels": 0, "default_samplerate": 48000},
-        ])
+        backend = FakeAudioBackend(
+            devices=[
+                {
+                    "name": "Interface",
+                    "max_input_channels": 8,
+                    "max_output_channels": 0,
+                    "default_samplerate": 48000,
+                },
+            ]
+        )
         assert DeviceRegistry(backend).describe(0).channels == 2
 
     def test_table_is_returned_as_text_not_printed(self, backend):

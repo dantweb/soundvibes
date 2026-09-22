@@ -1,7 +1,6 @@
 """Transcript writing: fan-out to per-language files, flushed after every line."""
-import datetime as dt
 
-import pytest
+import datetime as dt
 
 from soundvibes.formatters import JsonlFormatter, TextFormatter
 from soundvibes.models import TranscriptLine
@@ -9,9 +8,14 @@ from soundvibes.writer import TranscriptWriter
 
 
 def line(text="Guten Tag.", language="de", source="MIC"):
-    return TranscriptLine(source=source, language=language, text=text,
-                          started_at=dt.datetime(2026, 8, 25, 13, 41, 39),
-                          duration_seconds=1.0, language_probability=0.9)
+    return TranscriptLine(
+        source=source,
+        language=language,
+        text=text,
+        started_at=dt.datetime(2026, 8, 25, 13, 41, 39),
+        duration_seconds=1.0,
+        language_probability=0.9,
+    )
 
 
 class TestTranscriptWriter:
@@ -72,8 +76,9 @@ class TestTranscriptWriter:
 class TestPerLanguageSplitting:
     def test_each_language_gets_its_own_file(self, tmp_path):
         path = tmp_path / "transcript.txt"
-        writer = TranscriptWriter(path, TextFormatter(), split_by_language=True,
-                                  languages=["en", "de", "ru"])
+        writer = TranscriptWriter(
+            path, TextFormatter(), split_by_language=True, languages=["en", "de", "ru"]
+        )
 
         writer.write(line("Guten Tag.", "de"))
         writer.write(line("Hello there.", "en"))
@@ -85,8 +90,9 @@ class TestPerLanguageSplitting:
 
     def test_every_line_still_reaches_the_main_file(self, tmp_path):
         path = tmp_path / "transcript.txt"
-        writer = TranscriptWriter(path, TextFormatter(), split_by_language=True,
-                                  languages=["en", "de"])
+        writer = TranscriptWriter(
+            path, TextFormatter(), split_by_language=True, languages=["en", "de"]
+        )
 
         writer.write(line("Guten Tag.", "de"))
         writer.write(line("Hello there.", "en"))
@@ -96,8 +102,9 @@ class TestPerLanguageSplitting:
         assert "Guten Tag." in combined and "Hello there." in combined
 
     def test_unexpected_language_does_not_crash(self, tmp_path):
-        writer = TranscriptWriter(tmp_path / "t.txt", TextFormatter(),
-                                  split_by_language=True, languages=["en"])
+        writer = TranscriptWriter(
+            tmp_path / "t.txt", TextFormatter(), split_by_language=True, languages=["en"]
+        )
 
         rendered = writer.write(line("Bonjour.", "fr"))
         writer.close()

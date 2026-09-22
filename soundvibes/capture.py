@@ -4,21 +4,20 @@ The preprocessing and framing are plain objects with no device dependency, so
 the fiddly parts (channel mixing, resampling, frame boundaries) are unit-tested
 without any audio hardware.
 """
+
 from __future__ import annotations
 
 import queue
 import sys
 import threading
-from typing import Optional
 
 import numpy as np
 
+from .config import CONFIG
 from .constants import FRAME_SAMPLES, SAMPLE_RATE
 from .devices import AudioBackend, DeviceInfo
 from .endpointing import SpeechEndpointer
 from .models import Utterance
-
-from .config import CONFIG
 
 #: raw blocks buffered per source before we start dropping audio
 MAX_QUEUED_BLOCKS = CONFIG.audio.max_queued_blocks
@@ -32,8 +31,13 @@ BLOCK_POLL_SECONDS = CONFIG.audio.block_poll_seconds
 class AudioPreprocessor:
     """Device audio in, mono float32 at the whisper rate out."""
 
-    def __init__(self, source_rate: int, target_rate: int = SAMPLE_RATE,
-                 gain: float = 1.0, resample_quality: str = RESAMPLE_QUALITY) -> None:
+    def __init__(
+        self,
+        source_rate: int,
+        target_rate: int = SAMPLE_RATE,
+        gain: float = 1.0,
+        resample_quality: str = RESAMPLE_QUALITY,
+    ) -> None:
         self._source_rate = source_rate
         self._target_rate = target_rate
         self._gain = gain
@@ -46,8 +50,9 @@ class AudioPreprocessor:
         if self._source_rate != self._target_rate:
             import soxr  # noqa: PLC0415 - deferred so import soundvibes stays cheap
 
-            mono = soxr.resample(mono, self._source_rate, self._target_rate,
-                                 quality=self._resample_quality)
+            mono = soxr.resample(
+                mono, self._source_rate, self._target_rate, quality=self._resample_quality
+            )
         return mono.astype(np.float32, copy=False)
 
 
@@ -65,8 +70,10 @@ class FrameSplitter:
         combined = np.concatenate([self._residue, samples])
         usable = len(combined) - (len(combined) % self._frame_samples)
         self._residue = combined[usable:]
-        return [combined[start:start + self._frame_samples]
-                for start in range(0, usable, self._frame_samples)]
+        return [
+            combined[start : start + self._frame_samples]
+            for start in range(0, usable, self._frame_samples)
+        ]
 
 
 class AudioSource(threading.Thread):
@@ -78,14 +85,14 @@ class AudioSource(threading.Thread):
         device: DeviceInfo,
         backend: AudioBackend,
         endpointer: SpeechEndpointer,
-        utterances: "queue.Queue[Utterance]",
+        utterances: queue.Queue[Utterance],
         stop_event: threading.Event,
         gain: float = 1.0,
     ) -> None:
         super().__init__(name=f"capture-{label}", daemon=True)
         self.label = label
         self.device = device
-        self.failure: Optional[Exception] = None
+        self.failure: Exception | None = None
 
         self._backend = backend
         self._endpointer = endpointer
@@ -93,7 +100,7 @@ class AudioSource(threading.Thread):
         self._stop_event = stop_event
         self._preprocessor = AudioPreprocessor(source_rate=device.sample_rate, gain=gain)
         self._splitter = FrameSplitter()
-        self._blocks: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=MAX_QUEUED_BLOCKS)
+        self._blocks: queue.Queue[np.ndarray] = queue.Queue(maxsize=MAX_QUEUED_BLOCKS)
 
     @property
     def device_name(self) -> str:
@@ -119,8 +126,11 @@ class AudioSource(threading.Thread):
             self._emit(self._endpointer.flush())
         except Exception as error:  # noqa: BLE001 - a dead thread must not hang the app
             self.failure = error
-            print(f"[{self.label}] capture stopped: {error}\n"
-                  f"[{self.label}] device was {self.device.name!r}", file=sys.stderr)
+            print(
+                f"[{self.label}] capture stopped: {error}\n"
+                f"[{self.label}] device was {self.device.name!r}",
+                file=sys.stderr,
+            )
 
     def _on_audio(self, indata, _frames, _time_info, status) -> None:
         if status:

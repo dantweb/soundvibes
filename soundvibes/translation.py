@@ -12,11 +12,13 @@ the first feature where that can stop being true, so the choice is explicit:
 
 A backend is a class with one method. Adding one is `register_translator`.
 """
+
 from __future__ import annotations
 
 import re
 from collections import OrderedDict
-from typing import Callable, Optional, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from .config import CONFIG
 
@@ -67,7 +69,7 @@ class CachingTranslator:
     def __init__(self, inner: Translator, max_entries: int = MAX_CACHE_ENTRIES) -> None:
         self._inner = inner
         self._max_entries = max_entries
-        self._cache: "OrderedDict[tuple[str, str, str], str]" = OrderedDict()
+        self._cache: OrderedDict[tuple[str, str, str], str] = OrderedDict()
 
     def translate(self, text: str, source_language: str, target_language: str) -> str:
         key = (text, source_language, target_language)
@@ -132,8 +134,9 @@ class ArgosTranslator:
             if not any(p.from_code == source and p.to_code == target for p in available):
                 package_api.update_package_index()
                 candidates = package_api.get_available_packages()
-                match = next((p for p in candidates
-                              if p.from_code == source and p.to_code == target), None)
+                match = next(
+                    (p for p in candidates if p.from_code == source and p.to_code == target), None
+                )
                 if match is None:
                     # No direct package. Argos pivots through English when the
                     # legs are installed, so let the translation attempt decide
@@ -164,15 +167,20 @@ class ClaudeTranslator:
         "additionalProperties": False,
     }
 
-    SYSTEM = ("You translate short fragments of transcribed speech. Return only the "
-              "translation, preserving tone and register. Speech is disfluent and "
-              "sometimes clipped mid-sentence; translate what is there rather than "
-              "completing it. If the fragment is already in the target language, "
-              "return it unchanged.")
+    SYSTEM = (
+        "You translate short fragments of transcribed speech. Return only the "
+        "translation, preserving tone and register. Speech is disfluent and "
+        "sometimes clipped mid-sentence; translate what is there rather than "
+        "completing it. If the fragment is already in the target language, "
+        "return it unchanged."
+    )
 
-    def __init__(self, model: str = _DEFAULTS.claude.model,
-                 effort: str = _DEFAULTS.claude.effort,
-                 max_tokens: int = _DEFAULTS.claude.max_tokens) -> None:
+    def __init__(
+        self,
+        model: str = _DEFAULTS.claude.model,
+        effort: str = _DEFAULTS.claude.effort,
+        max_tokens: int = _DEFAULTS.claude.max_tokens,
+    ) -> None:
         self._model = model
         self._effort = effort
         self._max_tokens = max_tokens
@@ -186,10 +194,11 @@ class ClaudeTranslator:
                 model=self._model,
                 max_tokens=self._max_tokens,
                 system=self.SYSTEM,
-                messages=[{"role": "user",
-                           "content": f"Translate into {target}:\n\n{text}"}],
-                output_config={"effort": self._effort,
-                               "format": {"type": "json_schema", "schema": self.SCHEMA}},
+                messages=[{"role": "user", "content": f"Translate into {target}:\n\n{text}"}],
+                output_config={
+                    "effort": self._effort,
+                    "format": {"type": "json_schema", "schema": self.SCHEMA},
+                },
             )
         except Exception as error:  # noqa: BLE001
             raise TranslationError(f"Anthropic API call failed: {error}") from error
@@ -208,8 +217,7 @@ class ClaudeTranslator:
                 import anthropic  # noqa: PLC0415
             except ImportError as error:
                 raise TranslatorUnavailable(
-                    "The claude backend needs the Anthropic SDK:\n"
-                    "    pip install anthropic"
+                    "The claude backend needs the Anthropic SDK:\n    pip install anthropic"
                 ) from error
             self._client = anthropic.Anthropic()
         return self._client
@@ -222,7 +230,7 @@ _TRANSLATORS: dict[str, Callable[[], Translator]] = {
 }
 
 
-def register_translator(name: str, factory: Optional[Callable[[], Translator]]) -> None:
+def register_translator(name: str, factory: Callable[[], Translator] | None) -> None:
     """Add a backend, or remove one by passing None."""
     if factory is None:
         _TRANSLATORS.pop(name, None)
@@ -239,6 +247,5 @@ def create_translator(name: str) -> Translator:
         return _TRANSLATORS[name]()
     except KeyError:
         raise ValueError(
-            f"Unknown translation backend {name!r}. "
-            f"Available: {', '.join(available_translators())}"
+            f"Unknown translation backend {name!r}. Available: {', '.join(available_translators())}"
         ) from None

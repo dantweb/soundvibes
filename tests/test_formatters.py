@@ -1,17 +1,26 @@
 """Output formats are strategies, so a new one adds a class instead of a branch."""
+
 import datetime as dt
 import json
 
 import pytest
 
-from soundvibes.formatters import (JsonlFormatter, TextFormatter, available_formats,
-                                   create_formatter, register_formatter)
+from soundvibes.formatters import (
+    JsonlFormatter,
+    TextFormatter,
+    available_formats,
+    create_formatter,
+    register_formatter,
+)
 from soundvibes.models import TranscriptLine
 
 LINE = TranscriptLine(
-    source="MIC", language="de", text="Guten Tag.",
+    source="MIC",
+    language="de",
+    text="Guten Tag.",
     started_at=dt.datetime(2026, 8, 25, 13, 41, 39),
-    duration_seconds=1.234, language_probability=0.876,
+    duration_seconds=1.234,
+    language_probability=0.876,
 )
 
 
@@ -57,6 +66,7 @@ class TestRegistry:
 
     def test_a_new_format_needs_no_change_to_existing_code(self):
         """Open/closed: registration is the extension point."""
+
         class SubtitleFormatter:
             def format(self, line):
                 return f"{line.started_at:%H:%M:%S} --> {line.text}"

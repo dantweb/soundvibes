@@ -3,13 +3,13 @@
 Previously this logic existed twice — once in the main loop and once in the
 shutdown drain — so a fix to one could silently miss the other.
 """
+
 import datetime as dt
 import queue
 
 import numpy as np
-import pytest
-
 from conftest import FakeEngine, make_result
+
 from soundvibes.constants import SAMPLE_RATE
 from soundvibes.models import Utterance
 from soundvibes.pipeline import TranscriptionPipeline
@@ -74,6 +74,7 @@ class TestProcess:
 
     def test_a_failing_utterance_does_not_kill_the_run(self):
         """One bad utterance must not end a long recording session."""
+
         class ExplodingService:
             def transcribe(self, _utterance):
                 raise RuntimeError("engine blew up")

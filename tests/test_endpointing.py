@@ -1,7 +1,8 @@
 """The energy endpointer: the one piece of real signal processing we own."""
-import numpy as np
 
+import numpy as np
 from conftest import silence, tone
+
 from soundvibes.constants import FRAME_SAMPLES, SAMPLE_RATE
 from soundvibes.endpointing import SpeechEndpointer
 
@@ -11,7 +12,7 @@ def feed(endpointer, samples):
     finished = []
     usable = len(samples) - (len(samples) % FRAME_SAMPLES)
     for start in range(0, usable, FRAME_SAMPLES):
-        result = endpointer.push(samples[start:start + FRAME_SAMPLES])
+        result = endpointer.push(samples[start : start + FRAME_SAMPLES])
         if result is not None:
             finished.append(result)
     return finished
@@ -40,9 +41,15 @@ def test_speech_between_silences_is_one_utterance():
 
 
 def test_two_separated_utterances_are_split():
-    signal = np.concatenate([
-        silence(1.0), tone(1.0), silence(1.5), tone(1.0), silence(1.5),
-    ])
+    signal = np.concatenate(
+        [
+            silence(1.0),
+            tone(1.0),
+            silence(1.5),
+            tone(1.0),
+            silence(1.5),
+        ]
+    )
     assert len(feed(make(), signal)) == 2
 
 

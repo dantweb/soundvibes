@@ -3,11 +3,13 @@
 A new format is a class plus one `register_formatter` call — no existing code
 is edited, which is the point.
 """
+
 from __future__ import annotations
 
 import datetime as dt
 import json
-from typing import Callable, Optional, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from .models import TranscriptLine
 
@@ -15,7 +17,7 @@ from .models import TranscriptLine
 class LineFormatter(Protocol):
     def format(self, line: TranscriptLine) -> str: ...
 
-    def header(self, moment: dt.datetime) -> Optional[str]:
+    def header(self, moment: dt.datetime) -> str | None:
         """Text written once when a transcript file is opened, if any."""
 
 
@@ -26,7 +28,7 @@ class TextFormatter:
         clock = line.started_at.strftime("%H:%M:%S")
         return f"[{clock}] [{line.source}] [{line.language}] {line.text}"
 
-    def header(self, moment: dt.datetime) -> Optional[str]:
+    def header(self, moment: dt.datetime) -> str | None:
         stamp = moment.strftime("%Y-%m-%d %H:%M:%S")
         return f"\n===== soundvibes session started {stamp} ====="
 
@@ -47,7 +49,7 @@ class JsonlFormatter:
             ensure_ascii=False,
         )
 
-    def header(self, moment: dt.datetime) -> Optional[str]:
+    def header(self, moment: dt.datetime) -> str | None:
         return None  # a header would break line-per-object parsing
 
 
@@ -57,7 +59,7 @@ _FORMATTERS: dict[str, Callable[[], LineFormatter]] = {
 }
 
 
-def register_formatter(name: str, factory: Optional[Callable[[], LineFormatter]]) -> None:
+def register_formatter(name: str, factory: Callable[[], LineFormatter] | None) -> None:
     """Add a format, or remove one by passing None."""
     if factory is None:
         _FORMATTERS.pop(name, None)

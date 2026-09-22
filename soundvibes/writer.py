@@ -1,11 +1,13 @@
 """Writing transcript lines to disk, flushed so a kill never loses speech."""
+
 from __future__ import annotations
 
 import datetime as dt
 import sys
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional, Protocol, Sequence, Union
+from typing import Protocol
 
 from .config import CONFIG
 from .formatters import LineFormatter, create_formatter
@@ -44,7 +46,7 @@ class TranscriptWriter:
     def __init__(
         self,
         path: Path,
-        formatter: Union[LineFormatter, str] = CONFIG.output.format,
+        formatter: LineFormatter | str = CONFIG.output.format,
         split_by_language: bool = False,
         languages: Sequence[str] = (),
         sink_factory=FileSink,
@@ -55,9 +57,7 @@ class TranscriptWriter:
         self._per_language: dict[str, TranscriptSink] = {}
         if split_by_language:
             for code in languages:
-                language_path = self._path.with_name(
-                    f"{self._path.stem}.{code}{self._path.suffix}"
-                )
+                language_path = self._path.with_name(f"{self._path.stem}.{code}{self._path.suffix}")
                 self._per_language[code] = sink_factory(language_path)
         self._write_header()
 
@@ -100,7 +100,7 @@ class TranslationWriter:
     def __init__(
         self,
         path: Path,
-        formatter: Union[LineFormatter, str],
+        formatter: LineFormatter | str,
         translator,
         target_languages: Sequence[str],
         sink_factory=FileSink,
@@ -148,8 +148,9 @@ class TranslationWriter:
 
     # ── internals ────────────────────────────────────────────────────────
 
-    def _text_for(self, line: TranscriptLine, source_language: str,
-                  target_language: str) -> Optional[str]:
+    def _text_for(
+        self, line: TranscriptLine, source_language: str, target_language: str
+    ) -> str | None:
         """Translated text, or None when this line could not be translated."""
         if source_language == target_language:
             return line.text  # already in the target language; nothing to do
@@ -160,9 +161,10 @@ class TranslationWriter:
             # stop trying, rather than once per language per utterance.
             self.failures += 1
             self.disabled = True
-            print(f"[translate] {error}\n"
-                  f"Translation is switched off for the rest of this run.",
-                  file=sys.stderr)
+            print(
+                f"[translate] {error}\nTranslation is switched off for the rest of this run.",
+                file=sys.stderr,
+            )
             return None
         except Exception as error:  # noqa: BLE001 - one target must not sink the rest
             self.failures += 1

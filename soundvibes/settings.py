@@ -3,11 +3,11 @@
 Frozen on purpose: they are built once from the command line and then read from
 several threads. Nothing downstream should be able to reconfigure the run.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from .config import CONFIG
 
@@ -55,8 +55,8 @@ class OutputSettings:
 class CaptureSettings:
     capture_microphone: bool = True
     capture_system: bool = True
-    input_device: Optional[str] = None
-    system_device: Optional[str] = None
+    input_device: str | None = None
+    system_device: str | None = None
 
 
 @dataclass(frozen=True)
